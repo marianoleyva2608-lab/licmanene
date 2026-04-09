@@ -165,67 +165,6 @@
             }
         }
 
-        /* --- Estilos para la Modal de Google Calendar --- */
-        .modal-overlay {
-            display: none; /* Oculto por defecto */
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(5px);
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            background-color: white;
-            width: 90%;
-            max-width: 900px;
-            height: 80vh;
-            border-radius: 12px;
-            position: relative;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            overflow: hidden;
-            animation: modalFadeIn 0.3s ease;
-        }
-
-        @keyframes modalFadeIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: #f1f1f1;
-            border: none;
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            z-index: 10;
-            font-size: 1.2rem;
-            color: #333;
-            transition: background 0.2s;
-        }
-
-        .modal-close:hover {
-            background: #e2e2e2;
-        }
-
-        .iframe-container {
-            width: 100%;
-            height: 100%;
-            padding-top: 40px; /* space for the close button */
-            background-color: white;
-        }
     </style>
 </head>
 <body>
@@ -252,43 +191,18 @@
         </div>
     </section>
 
-    <!-- Ventana Modal para Google Calendar -->
-    <div id="calendar-modal" class="modal-overlay">
-        <div class="modal-content">
-            <button class="modal-close" id="btn-cerrar-modal"><i class="fas fa-times"></i></button>
-            <div class="iframe-container">
-                <!-- Por defecto no cargamos nada hasta que pongas el link publico de citas de Google Calendar aquí -->
-                <iframe id="calendar-iframe" src="" style="border: 0" width="100%" height="600" frameborder="0" scrolling="yes"></iframe>
-            </div>
-        </div>
-    </div>
+    <!-- El modal ha sido removido porque abriremos la reservación en una pestaña nueva -->
 
     <script>
         const btnAgendar = document.getElementById('btn-agendar');
-        const modal = document.getElementById('calendar-modal');
-        const btnCerrar = document.getElementById('btn-cerrar-modal');
-        const iframe = document.getElementById('calendar-iframe');
 
-        // ==== AQUÍ DEBES PONER TU LINK PÚBLICO DE GOOGLE CALENDAR ====
-        // Ejemplo: https://calendar.app.google/xxxxxxxxxxxxxxxxxx
+        // Tu link público de Citas de Google
         const GOOGLE_CALENDAR_LINK = "https://calendar.app.google/ECc8xnxyxkYPFtiC6"; 
 
         btnAgendar.addEventListener('click', () => {
-            if (iframe.src === "" || iframe.src === window.location.href) {
-                iframe.src = GOOGLE_CALENDAR_LINK; // Carga el calendario solo cuando lo abran
-            }
-            modal.style.display = 'flex';
-        });
-
-        btnCerrar.addEventListener('click', () => {
-            modal.style.display = 'none';
-        });
-
-        // Cerrar al dar click fuera de la ventana
-        window.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-            }
+            // Google bloquea por seguridad incrustar este tipo de links cortos en iFrames (rechazó la conexión). 
+            // La solución oficial de Google y la más confiable en móviles es abrir una pestaña nueva segura.
+            window.open(GOOGLE_CALENDAR_LINK, '_blank');
         });
     </script>
 </body>
