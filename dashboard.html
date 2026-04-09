@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Asistencias | Geolocalización</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-color: #3b82f6;
+            --accent-hover: #60a5fa;
+            --success-color: #10b981;
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent 400px),
+                              radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.1), transparent 400px);
+        }
+
+        header {
+            padding: 20px 40px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(to right, #60a5fa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent-color);
+        }
+
+        .btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        main {
+            padding: 40px;
+            flex: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .view-section {
+            display: none;
+        }
+        .view-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Stats & Layouts */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(8px);
+            padding: 24px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .stat-title {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .table-container {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            backdrop-filter: blur(8px);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: rgba(30, 41, 59, 0.8);
+            padding: 16px 24px;
+            text-align: left;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 16px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.95rem;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+        /* Forms */
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: flex-end;
+            background: rgba(30, 41, 59, 0.4);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px dashed rgba(255,255,255, 0.2);
+        }
+
+        .form-group { flex: 1; }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-color);
+            color: white;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        /* --- MODAL --- */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 100;
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: var(--surface-color); border: 1px solid var(--border-color);
+            padding: 30px; border-radius: 12px; width: 400px; max-width: 90%;
+        }
+
+        /* --- ESTILOS PARA IMPRESIÓN SÚPER SEGUROS --- */
+        @media print {
+            @page { margin: 15mm; size: landscape; }
+            html, body { 
+                background: white !important; 
+                color: black !important; 
+                margin: 0 !important; 
+                padding: 0 !important; 
+                height: auto !important; 
+            }
+            .tabs, .form-row, .btn, button, a, .modal, #input-filtro-reporte, #input-filtro-asistencias { 
+                display: none !important; 
+            }
+            header { 
+                display: block !important; 
+                background: none !important; 
+                border: none !important; 
+                padding: 0 !important; 
+                margin-bottom: 20px !important;
+            }
+            h1 { 
+                color: black !important; 
+                font-size: 24pt !important; 
+                background: none !important; 
+                -webkit-text-fill-color: black !important; 
+            }
+            h2, p { color: black !important; }
+            .view-section { display: none !important; }
+            .view-section.active { display: block !important; }
+            .stat-card { display: none !important; } /* Simplificar ocultando stats al imprimir */
+            
+            .table-container { 
+                overflow: visible !important; 
+                border: none !important; 
+                background: transparent !important; 
+            }
+            table { 
+                width: 100% !important; 
+                border-collapse: collapse !important; 
+                border: 1px solid black !important; 
+                table-layout: auto !important; 
+                page-break-inside: auto !important;
+            }
+            tr { 
+                page-break-inside: avoid !important; 
+                break-inside: avoid !important; 
+                page-break-after: auto !important; 
+            }
+            thead { display: table-header-group !important; }
+            th, td { 
+                border: 1px solid black !important; 
+                padding: 6px !important; 
+                color: black !important; 
+                font-size: 11pt !important; 
+                word-wrap: break-word !important;
+                vertical-align: top !important;
+            }
+            th { 
+                background-color: #ededed !important; 
+                color: black !important; 
+                font-weight: bold !important; 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+            }
+            td div, td span { 
+                color: black !important; 
+                background: transparent !important; 
+                border: none !important; 
+                white-space: normal !important; 
+                overflow: visible !important; 
+                text-overflow: clip !important; 
+                max-width: none !important;
+            }
+        }
+
+        /* --- TWEAKS PARA RELOJ --- */
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.8);
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>📡 Control de Geolocalización</h1>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('asistencias')">📍 Bitácora Histórica</button>
+            <button class="tab-btn" onclick="switchTab('reporte')">📋 Reporte Horarios</button>
+            <button class="tab-btn" onclick="switchTab('lugares')">🏢 Administrar Lugares</button>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <button class="btn btn-outline" onclick="abrirHorarios()">⚙️ Config. Horarios</button>
+            <button class="btn btn-outline" id="btn-print" onclick="window.print()">🖨️ Imprimir</button>
+            <button class="btn btn-outline" id="btn-refresh">🔄 Recargar Datos</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- VISTA DE ASISTENCIAS -->
+        <section id="view-asistencias" class="view-section active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-title">Total de Registros</span>
+                    <span class="stat-value" id="stat-total">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Registros de Hoy</span>
+                    <span class="stat-value" id="stat-hoy">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Usuarios Diferentes</span>
+                    <span class="stat-value" id="stat-users">-</span>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h3 style="margin: 0;">Registro Bruto</h3>
+                <input type="text" id="input-filtro-asistencias" placeholder="🔍 Buscar por nombre o teléfono..." onkeyup="filtrarAsistencias()" style="padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(30,41,59,0.8); color: white; width: 280px; outline: none;">
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Hora y Fecha</th>
+                            <th>Teléfono</th>
+                            <th>Ubicación Enviada</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="4" id="loading" style="text-align: center; color: var(--text-secondary); padding: 40px;">Cargando sistema...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- VISTA DE REPORTE DIARIO CONSOLIDADO -->
+        <section id="view-reporte" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px;" class="report-header">
+                <div>
+                    <h2 style="margin-bottom: 8px;">Kardex Consolidado Diario</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 0; font-size: 0.9rem;">Agrupa las asistencias por día. Filtra por empleado para su reporte individual.</p>
+                </div>
+                <div>
+                    <input type="text" id="input-filtro-reporte" placeholder="🔍 Buscar nombre o teléfono..." onkeyup="filtrarReporte()" style="padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(30,41,59,0.8); color: white; width: 260px; outline: none;">
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Usuario / Teléfono</th>
+                            <th>🌅 Entrada</th>
+                            <th id="th-comida-1">🍽 Salida Comida</th>
+                            <th id="th-comida-2">🥪 Retorno</th>
+                            <th>🌙 Fin Turno</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-reporte">
+                        <tr><td id="td-report-empty" colspan="6" style="text-align: center; color: var(--text-secondary); padding: 40px;">Consolidando datos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- VISTA DE LUGARES -->
+        <section id="view-lugares" class="view-section">
+            <h2 style="margin-bottom: 8px;">Mis Lugares (Geocercas)</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 24px; font-size: 0.9rem;">Registra aquí tus oficinas o sucursales. El teléfono detectará cuando un usuario esté cerca de estas ubicaciones.</p>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nombre del Lugar (Ej: El Taller)</label>
+                    <input type="text" id="input-nombre" placeholder="Taller Norte">
+                </div>
+                <div class="form-group">
+                    <label>Latitud</label>
+                    <input type="text" id="input-lat" placeholder="21.962343">
+                </div>
+                <div class="form-group">
+                    <label>Longitud</label>
+                    <input type="text" id="input-lng" placeholder="-102.297126">
+                </div>
+                <div>
+                    <button class="btn" onclick="guardarLugar()">💾 Guardar Lugar</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Lugar</th>
+                            <th>Coordenadas GPS</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-lugares">
+                        <tr><td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 40px;">Cargando lugares...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL DE CONFIGURACIÓN DE HORARIOS -->
+    <div id="modal-horarios" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 10px;">Configurar Horarios de Turno</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">Utiliza horas exactas con minutos.</p>
+            
+            <div class="form-group" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0; font-size: 1rem; color: var(--accent-color);">
+                    <input type="checkbox" id="cfg-usa-comida" style="width: 20px; height: 20px; cursor: pointer;">
+                    Controlar Horarios de Comida
+                </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <label style="margin-bottom: 0;">Hora de Inicio de Entrada</label>
+                <input type="time" id="cfg-inicio-entrada" value="06:00" style="width: 140px; padding: 6px 10px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <label style="margin-bottom: 0;">Límite máximo de Entrada</label>
+                <input type="time" id="cfg-entrada" value="12:00" style="width: 140px; padding: 6px 10px;">
+            </div>
+            <div id="row-salida-comida" class="form-group" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <label style="margin-bottom: 0;">Límite máximo Salida Comida</label>
+                <input type="time" id="cfg-salida-comida" value="15:00" style="width: 140px; padding: 6px 10px;">
+            </div>
+            <div id="row-regreso-comida" class="form-group" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <label style="margin-bottom: 0;">Límite máximo Retorno Comida</label>
+                <input type="time" id="cfg-regreso-comida" value="16:00" style="width: 140px; padding: 6px 10px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                <label style="margin-bottom: 0;">Corte a Fin de Turno (a partir de)</label>
+                <input type="time" id="cfg-salida-fin" value="17:00" style="width: 140px; padding: 6px 10px;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px; padding-top: 15px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <label style="margin-bottom: 0;">Radio de Geocerca (Metros)</label>
+                <input type="number" id="cfg-radio" value="40" style="width: 80px; padding: 6px 10px;">
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="btn btn-outline" onclick="cerrarHorarios()">Cancelar</button>
+                <button class="btn" onclick="guardarHorarios()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase Constantes Duras
+        const url = "https://agent-supabase.c4o2yg.easypanel.host";
+        const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
+        let supabaseClient = null;
+
+        // Vistas de Horario Configurable (Manejados como Strings HH:MM)
+        let configHorarios = { usaComida: true, inicioEntrada: "06:00", limEntrada: "12:00", limSalidaComida: "15:00", limRegresoComida: "16:00", inicioSalidaFin: "17:00", radioGeocerca: 40 };
+        try {
+            const guardado = localStorage.getItem('cfg_horarios');
+            if (guardado) {
+                const par = JSON.parse(guardado);
+                if(typeof par.inicioEntrada === 'number') {
+                    configHorarios.inicioEntrada = "06:00"; 
+                } else {
+                    configHorarios = par;
+                }
+                if(typeof configHorarios.usaComida === 'undefined') configHorarios.usaComida = true;
+                if(typeof configHorarios.radioGeocerca === 'undefined') configHorarios.radioGeocerca = 40;
+            }
+        } catch(e){}
+
+        // Toggle Comida UI en tiempo real
+        document.getElementById('cfg-usa-comida').addEventListener('change', (e) => {
+            const display = e.target.checked ? 'flex' : 'none';
+            document.getElementById('row-salida-comida').style.display = display;
+            document.getElementById('row-regreso-comida').style.display = display;
+        });
+
+        function abrirHorarios() {
+            document.getElementById('cfg-usa-comida').checked = configHorarios.usaComida;
+            // Disparar toggle inicial
+            document.getElementById('cfg-usa-comida').dispatchEvent(new Event('change'));
+
+            document.getElementById('cfg-inicio-entrada').value = configHorarios.inicioEntrada;
+            document.getElementById('cfg-entrada').value = configHorarios.limEntrada;
+            document.getElementById('cfg-salida-comida').value = configHorarios.limSalidaComida;
+            document.getElementById('cfg-regreso-comida').value = configHorarios.limRegresoComida;
+            document.getElementById('cfg-salida-fin').value = configHorarios.inicioSalidaFin;
+            document.getElementById('cfg-radio').value = configHorarios.radioGeocerca;
+            document.getElementById('modal-horarios').style.display = 'flex';
+        }
+        function cerrarHorarios() { document.getElementById('modal-horarios').style.display = 'none'; }
+        function guardarHorarios() {
+            configHorarios.usaComida = document.getElementById('cfg-usa-comida').checked;
+            configHorarios.inicioEntrada = document.getElementById('cfg-inicio-entrada').value || "06:00";
+            configHorarios.limEntrada = document.getElementById('cfg-entrada').value || "12:00";
+            configHorarios.limSalidaComida = document.getElementById('cfg-salida-comida').value || "15:00";
+            configHorarios.limRegresoComida = document.getElementById('cfg-regreso-comida').value || "16:00";
+            configHorarios.inicioSalidaFin = document.getElementById('cfg-salida-fin').value || "17:00";
+            configHorarios.radioGeocerca = parseInt(document.getElementById('cfg-radio').value) || 40;
+            localStorage.setItem('cfg_horarios', JSON.stringify(configHorarios));
+            cerrarHorarios();
+            const isLugares = document.getElementById('view-lugares').classList.contains('active');
+            if(!isLugares) fetchData(); // Refresca con los nuevos horarios
+        }
+
+        function timeToMin(str) {
+            if(!str) return 0;
+            const pts = str.split(':');
+            return parseInt(pts[0]) * 60 + parseInt(pts[1]);
+        }
+
+        // Vistas de Pestañas
+        function switchTab(tabId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`view-${tabId}`).classList.add('active');
+            document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`).classList.add('active');
+
+            if(tabId === 'asistencias' || tabId === 'reporte') fetchData();
+            if(tabId === 'lugares') fetchLugares();
+        }
+
+        document.getElementById('btn-refresh').addEventListener('click', () => {
+            const isLugares = document.getElementById('view-lugares').classList.contains('active');
+            if (isLugares) fetchLugares(); else fetchData();
+        });
+
+        function initSupabase() {
+            if (!window.supabase) {
+                document.getElementById('table-body').innerHTML = '<tr><td colspan="4">Error de librería JS</td></tr>';
+                return;
+            }
+            try {
+                supabaseClient = window.supabase.createClient(url, key);
+                fetchData();
+            } catch (err) {
+                console.error("Error init:", err);
+            }
+        }
+
+        // --- LÓGICA DE ASISTENCIAS ---
+        async function fetchData() {
+            if(!supabaseClient) return;
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">↻ Descargando historial y geocercas...</td></tr>';
+
+            try {
+                // Descargamos tanto las asistencias como los lugares guardados al mismo tiempo
+                const [checkinsRes, lugaresRes] = await Promise.all([
+                    supabaseClient.from('checkins').select('*').order('created_at', { ascending: false }),
+                    supabaseClient.from('lugares').select('*')
+                ]);
+
+                if (checkinsRes.error) throw checkinsRes.error;
+                if (lugaresRes.error) throw lugaresRes.error;
+
+                const data = checkinsRes.data;
+                const misLugares = lugaresRes.data || [];
+
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No hay registros o RLS está bloqueándolos.</td></tr>';
+                    renderStats([]);
+                    return;
+                }
+                renderStats(data);
+                renderTable(data, misLugares);
+                renderReporte(data);
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="4" style="color: #ef4444;">Error: ${error.message}</td></tr>`;
+            }
+        }
+
+        // Fórmula para medir distancias reales en la Tierra (Haversine)
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))); // Distancia en metros
+        }
+
+        // Helper para detectar lugar
+        function detectarLugar(row, misLugares) {
+            if (!row.lat || !row.lng) return null;
+            for (const lugar of misLugares) {
+                const d = calcularDistancia(row.lat, row.lng, lugar.lat, lugar.lng);
+                if (d <= configHorarios.radioGeocerca) return lugar.nombre;
+            }
+            return null;
+        }
+
+        function renderTable(data, misLugares) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            
+            data.forEach((row) => {
+                const dateObj = new Date(row.created_at);
+                const localeDate = dateObj.toLocaleDateString();
+                const localeTime = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const chkMin = dateObj.getHours() * 60 + dateObj.getMinutes();
+
+                // Convertir límites a minutos para comparar exacto
+                const mIniEnt = timeToMin(configHorarios.inicioEntrada);
+                const mLmtEnt = timeToMin(configHorarios.limEntrada);
+                const mLmtCom = timeToMin(configHorarios.limSalidaComida);
+                const mLmtReg = timeToMin(configHorarios.limRegresoComida);
+                const mIniFin = timeToMin(configHorarios.inicioSalidaFin);
+
+                // Lógica de Tipo de Movimiento Dinámica con Minutos
+                let tipoStr = "📍 Auxiliar";
+                let badgeColor = "var(--accent-color)"; // Default blue
+
+                if (chkMin >= mIniEnt && chkMin < mLmtEnt) {
+                    tipoStr = "🌅 Entrada";
+                    badgeColor = "var(--success-color)";
+                } else if (configHorarios.usaComida && chkMin >= mLmtEnt && chkMin <= mLmtCom) {
+                    tipoStr = "🍽 Salida Comida";
+                    badgeColor = "#f59e0b";
+                } else if (configHorarios.usaComida && chkMin > mLmtCom && chkMin <= mLmtReg) {
+                    tipoStr = "🥪 Vuelve Comida";
+                    badgeColor = "#f59e0b";
+                } else if (chkMin >= mIniFin) {
+                    tipoStr = "🌙 Salida (Fin)";
+                    badgeColor = "#ef4444";
+                }
+
+                const badge = `<span style="margin-left: 8px; font-size: 0.75rem; background: ${badgeColor}20; color: ${badgeColor}; padding: 3px 8px; border-radius: 12px; border: 1px solid ${badgeColor}40;">${tipoStr}</span>`;
+
+                // Magia: detectamos si la ubicación está a menos del radio configurado
+                let ubicacionIdentificada = row.address || 'Sin dirección';
+                let esLugarConocido = false;
+
+                const nombreLugar = detectarLugar(row, misLugares);
+                if (nombreLugar) {
+                    ubicacionIdentificada = `✅ Check-in en: <b>${nombreLugar}</b>`;
+                    esLugarConocido = true;
+                }
+
+                // Estilo especial si detectó un lugar
+                const bgStyle = esLugarConocido ? 'background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px; border-radius: 6px;' : '';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <div style="font-size: 1.15rem; font-weight: 600; color: var(--text-primary);">${row.name || 'Sin nombre'}</div>
+                    </td>
+                    <td>
+                        <div style="font-size: 1.4rem; font-weight: 700; color: var(--accent-color);">${localeTime}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px; display: flex; align-items: center;">📅 ${localeDate} ${badge}</div>
+                    </td>
+                    <td style="font-family: monospace; font-size: 1.05rem; color: var(--text-primary);">${row.userPhone || 'N/A'}</td>
+                    <td>
+                        <div style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 8px; ${bgStyle}" title="${row.address || 'Sin dirección'}">📍 ${ubicacionIdentificada}</div>
+                         ${row.mapUrl ? `<a href="${row.mapUrl}" target="_blank" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.8rem;">Ver Mapa 🗺</a>` : '<span style="color:gray;">Sin Mapa</span>'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // REPORTE CONSOLIDADO DIARIO
+        function renderReporte(data) {
+            const tbody = document.getElementById('table-reporte');
+            tbody.innerHTML = '';
+            
+            // Ajustar Columnas si Comida está Desactivado
+            document.getElementById('th-comida-1').style.display = configHorarios.usaComida ? '' : 'none';
+            document.getElementById('th-comida-2').style.display = configHorarios.usaComida ? '' : 'none';
+
+            // Agrupar los datos usando la Fecha y el Teléfono como llave combinada
+            const grupos = {};
+            
+            data.forEach(row => {
+                const dateObj = new Date(row.created_at);
+                const fecha = dateObj.toLocaleDateString();
+                const horaStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                const chkMin = dateObj.getHours() * 60 + dateObj.getMinutes();
+                const mIniEnt = timeToMin(configHorarios.inicioEntrada);
+                const mLmtEnt = timeToMin(configHorarios.limEntrada);
+                const mLmtCom = timeToMin(configHorarios.limSalidaComida);
+                const mLmtReg = timeToMin(configHorarios.limRegresoComida);
+                const mIniFin = timeToMin(configHorarios.inicioSalidaFin);
+                
+                const clave = `${fecha}_${row.userPhone}`;
+                if (!grupos[clave]) {
+                    grupos[clave] = {
+                        fecha: fecha,
+                        nombre: row.name || 'Sin nombre',
+                        telefono: row.userPhone,
+                        entrada: '--:--',
+                        salida_comida: '--:--',
+                        regreso_comida: '--:--',
+                        salida_fin: '--:--'
+                    };
+                }
+
+                const nombreLugar = detectarLugar(row, misLugares);
+                const infoStr = nombreLugar ? `${horaStr} (${nombreLugar})` : horaStr;
+
+                // Clasificamos y anexamos tosos los check-ins extra simples separados por comas
+                if (chkMin >= mIniEnt && chkMin < mLmtEnt) {
+                    grupos[clave].entrada = grupos[clave].entrada === '--:--' ? infoStr : grupos[clave].entrada + ", " + infoStr;
+                } else if (configHorarios.usaComida && chkMin >= mLmtEnt && chkMin <= mLmtCom) {
+                    grupos[clave].salida_comida = grupos[clave].salida_comida === '--:--' ? infoStr : grupos[clave].salida_comida + ", " + infoStr;
+                } else if (configHorarios.usaComida && chkMin > mLmtCom && chkMin <= mLmtReg) {
+                    grupos[clave].regreso_comida = grupos[clave].regreso_comida === '--:--' ? infoStr : grupos[clave].regreso_comida + ", " + infoStr;
+                } else if (chkMin >= mIniFin) {
+                    grupos[clave].salida_fin = grupos[clave].salida_fin === '--:--' ? infoStr : grupos[clave].salida_fin + ", " + infoStr;
+                }
+            });
+
+            const llaves = Object.keys(grupos);
+            if (llaves.length === 0) {
+                 tbody.innerHTML = `<tr><td colspan="${configHorarios.usaComida ? 6 : 4}" style="text-align: center;">No hay datos para el reporte.</td></tr>`;
+                 return;
+            }
+
+            llaves.forEach(k => {
+                const fila = grupos[k];
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: bold; color: var(--accent-color); font-size: 1.1rem;">📅 ${fila.fecha}</td>
+                    <td>
+                        <div style="font-weight: 600; font-size: 1.1rem; color: var(--text-primary);">${fila.nombre}</div>
+                        <div style="font-family: monospace; font-size: 0.9rem; color: var(--text-secondary);">${fila.telefono}</div>
+                    </td>
+                    <td style="color: ${fila.entrada !== '--:--' ? 'var(--success-color)' : 'var(--text-secondary)'}; font-weight: 600;">${fila.entrada}</td>
+                    ${configHorarios.usaComida ? `
+                    <td style="color: ${fila.salida_comida !== '--:--' ? '#f59e0b' : 'var(--text-secondary)'}; font-weight: 600;">${fila.salida_comida}</td>
+                    <td style="color: ${fila.regreso_comida !== '--:--' ? '#f59e0b' : 'var(--text-secondary)'}; font-weight: 600;">${fila.regreso_comida}</td>
+                    ` : ''}
+                    <td style="color: ${fila.salida_fin !== '--:--' ? '#ef4444' : 'var(--text-secondary)'}; font-weight: 600;">${fila.salida_fin}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function filtrarReporte() {
+            const filtro = document.getElementById('input-filtro-reporte').value.toLowerCase();
+            const filas = document.querySelectorAll('#table-reporte tr');
+            
+            filas.forEach(fila => {
+                // Prevenimos ocultar el mensaje de "No hay datos..." o "Descargando..." si el tbody no tiene datos reales
+                if(fila.cells.length === 1) return; 
+                
+                const texto = fila.innerText.toLowerCase();
+                fila.style.display = texto.includes(filtro) ? '' : 'none';
+            });
+        }
+
+        // FILTRAR BITÁCORA HISTÓRICA
+        function filtrarAsistencias() {
+            const filtro = document.getElementById('input-filtro-asistencias').value.toLowerCase();
+            const filas = document.querySelectorAll('#table-body tr');
+            
+            filas.forEach(fila => {
+                if(fila.cells.length === 1) return; 
+                const texto = fila.innerText.toLowerCase();
+                fila.style.display = texto.includes(filtro) ? '' : 'none';
+            });
+        }
+
+        function renderStats(data) {
+            document.getElementById('stat-total').textContent = data.length;
+            const today = new Date().toLocaleDateString();
+            document.getElementById('stat-hoy').textContent = data.filter(r => new Date(r.created_at).toLocaleDateString() === today).length;
+            document.getElementById('stat-users').textContent = new Set(data.map(r => r.userPhone).filter(Boolean)).size;
+        }
+
+        // --- CONVERTIDOR INTELIGENTE DE COORDENADAS ---
+        function parseDMS(input) {
+            // Regex para capturar grados, minutos, segundos y hemisferio
+            const dmsRegex = /([-+]?\d+)[°\s]+(\d+)['\s]+([\d.]+)[″"\s]*([NSEWO])?/i;
+            const match = input.match(dmsRegex);
+            if (!match) return null;
+            let [ , deg, min, sec, dir ] = match;
+            let decimal = Math.abs(parseFloat(deg)) + (parseFloat(min) / 60) + (parseFloat(sec) / 3600);
+            
+            // Si la dirección es S (Sur) o W/O (Oeste), el número es negativo
+            if (dir && ['S', 'W', 'O'].includes(dir.toUpperCase())) decimal = -decimal;
+            if (!dir && parseFloat(deg) < 0) decimal = -decimal;
+            return decimal.toFixed(6); // Retorna máximo 6 decimales
+        }
+
+        // Detectar si el usuario pegó el string largo en la misma caja (Latitud)
+        document.getElementById('input-lat').addEventListener('change', (e) => {
+            const val = e.target.value;
+            const dmsRegexMulti = /([-+]?\d+[°\s]+\d+['\s]+[\d.]+[″"\s]*[NSEWO]?)/gi;
+            const matches = val.match(dmsRegexMulti);
+            
+            if (matches && matches.length >= 2) {
+                // Pegó la hilera completa! Separa ambas
+                document.getElementById('input-lat').value = parseDMS(matches[0]);
+                document.getElementById('input-lng').value = parseDMS(matches[1]);
+            } else {
+                const single = parseDMS(val);
+                if (single) e.target.value = single;
+            }
+        });
+
+        // Convertidor para la caja de longitud, por si pegan de uno por uno
+        document.getElementById('input-lng').addEventListener('change', (e) => {
+            const single = parseDMS(e.target.value);
+            if (single) e.target.value = single;
+        });
+
+        // --- LÓGICA DE LUGARES ---
+        async function fetchLugares() {
+            if(!supabaseClient) return;
+            const tbody = document.getElementById('table-lugares');
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">↻ Obteniendo lugares...</td></tr>';
+
+            try {
+                const { data, error } = await supabaseClient.from('lugares').select('*').order('nombre', { ascending: true });
+                if (error) throw error;
+                
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Aún no has registrado ninguna sucursal. Usa el formulario de arriba.</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = '';
+                data.forEach(lugar => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><div style="font-size: 1.1rem; font-weight: 600;">🏢 ${lugar.nombre}</div></td>
+                        <td style="font-family: monospace; color: var(--text-secondary);">Lat: ${lugar.lat}<br>Lng: ${lugar.lng}</td>
+                        <td>
+                            <button class="btn btn-danger" onclick="borrarLugar('${lugar.id}')" style="padding: 6px 12px; font-size: 0.8rem;">🗑 Eliminar</button>
+                            <a href="https://maps.google.com/?q=${lugar.lat},${lugar.lng}" target="_blank" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.8rem;">Ver Mapa</a>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="3" style="color: #ef4444;">Error: ¿Ya creaste la tabla 'lugares' en Supabase SQL?</td></tr>`;
+            }
+        }
+
+        async function guardarLugar() {
+            const nombre = document.getElementById('input-nombre').value.trim();
+            const latStr = document.getElementById('input-lat').value.trim();
+            const lngStr = document.getElementById('input-lng').value.trim();
+
+            if(!nombre || !latStr || !lngStr) {
+                alert("Por favor llena el nombre, latitud y longitud."); return;
+            }
+
+            const lat = parseFloat(latStr);
+            const lng = parseFloat(lngStr);
+
+            if(isNaN(lat) || isNaN(lng)) {
+                alert("La latitud y longitud deben ser números (pueden llevar signo menos y decimales)."); return;
+            }
+
+            const btn = document.querySelector('.form-row .btn');
+            btn.innerHTML = "Guardando..."; btn.disabled = true;
+
+            try {
+                const { error } = await supabaseClient.from('lugares').insert([{ nombre, lat, lng }]);
+                if (error) throw error;
+                
+                document.getElementById('input-nombre').value = '';
+                document.getElementById('input-lat').value = '';
+                document.getElementById('input-lng').value = '';
+                fetchLugares();
+            } catch (err) {
+                alert("Error al guardar: " + err.message);
+            } finally {
+                btn.innerHTML = "💾 Guardar Lugar"; btn.disabled = false;
+            }
+        }
+
+        async function borrarLugar(id) {
+            if(!confirm("¿Seguro que deseas eliminar este lugar seguro?")) return;
+            try {
+                const { error } = await supabaseClient.from('lugares').delete().eq('id', id);
+                if (error) throw error;
+                fetchLugares();
+            } catch (err) {
+                alert("Error al borrar: " + err.message);
+            }
+        }
+
+        // Iniciar
+        setTimeout(initSupabase, 300);
+    </script>
+</body>
+</html>
