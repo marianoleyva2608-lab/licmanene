@@ -196,12 +196,17 @@
     <script>
         const btnAgendar = document.getElementById('btn-agendar');
 
-        // Tu link público de Citas de Google en Español
-        const GOOGLE_CALENDAR_LINK = "https://calendar.app.google/ECc8xnxyxkYPFtiC6?hl=es"; 
+        // 1. LINK DE MERCADO PAGO ACTUALIZADO
+        // Coloca aquí tu link de Checkout Pro (ej: https://mpago.la/xxxxxx)
+        const MERCADO_PAGO_LINK = "https://mpago.la/xxxxxx"; 
+
         btnAgendar.addEventListener('click', () => {
-            // Google bloquea por seguridad incrustar este tipo de links cortos en iFrames (rechazó la conexión). 
-            // La solución oficial de Google y la más confiable en móviles es abrir una pestaña nueva segura.
-            window.open(GOOGLE_CALENDAR_LINK, '_blank');
+            if (MERCADO_PAGO_LINK.includes("xxxxxx")) {
+                alert("Licenciado Manene: Se abrirá la pantalla de cobro con Tarjeta. (Recuerda poner tu link real en el código)");
+                window.open("https://www.mercadopago.com.mx/checkout/p/9ec12a44-f254-46c5-842c-29ea026771d1/checkout", "_blank");
+            } else {
+                window.open(MERCADO_PAGO_LINK, '_blank');
+            }
         });
     </script>
 </body>
