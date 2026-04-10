@@ -165,6 +165,61 @@
             }
         }
 
+        /* --- Estilos para Modal de Pago --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            width: 95%; max-width: 500px; /* Ancho idóneo para checkout móvil o desktop */
+            height: 90vh; max-height: 800px;
+            border-radius: 16px;
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px; right: 15px;
+            background: rgba(0,0,0,0.1);
+            border: none;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            font-size: 1.2rem;
+            color: #333;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(0,0,0,0.2);
+        }
+
+        .iframe-container {
+            width: 100%; height: 100%;
+            /* Padding top to ensure the close button doesn't overlap important iframe content too badly, 
+               though Mercado Pago usually has some space at the top anyway. */
+            padding-top: 10px; 
+            background: #f7f7f7; /* Matching common checkout bg */
+        }
     </style>
 </head>
 <body>
@@ -191,10 +246,21 @@
         </div>
     </section>
 
-    <!-- El modal ha sido removido porque abriremos la reservación en una pestaña nueva -->
+    <!-- Modal emergente para Pasarela de Pago -->
+    <div id="payment-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close" id="btn-cerrar-modal"><i class="fas fa-times"></i></button>
+            <div class="iframe-container">
+                <iframe id="payment-iframe" src="" style="border: 0" width="100%" height="100%" frameborder="0" scrolling="yes"></iframe>
+            </div>
+        </div>
+    </div>
 
     <script>
         const btnAgendar = document.getElementById('btn-agendar');
+        const modal = document.getElementById('payment-modal');
+        const btnCerrar = document.getElementById('btn-cerrar-modal');
+        const iframe = document.getElementById('payment-iframe');
 
         // 1. LINK DE MERCADO PAGO ACTUALIZADO
         // Coloca aquí tu link de Checkout Pro (ej: https://mpago.la/xxxxxx)
@@ -202,10 +268,23 @@
 
         btnAgendar.addEventListener('click', () => {
             if (MERCADO_PAGO_LINK.includes("xxxxxx")) {
-                alert("Licenciado Manene: Se abrirá la pantalla de cobro con Tarjeta. (Recuerda poner tu link real en el código)");
-                window.open("https://www.mercadopago.com.mx/checkout/p/9ec12a44-f254-46c5-842c-29ea026771d1/checkout", "_blank");
+                alert("Licenciado Manene: Se abrirá la pantalla de cobro con Tarjeta dentro de esta página. (Recuerda poner tu link real en el código)");
+                iframe.src = "https://www.mercadopago.com.mx/checkout/p/9ec12a44-f254-46c5-842c-29ea026771d1/checkout";
             } else {
-                window.open(MERCADO_PAGO_LINK, '_blank');
+                iframe.src = MERCADO_PAGO_LINK;
+            }
+            modal.style.display = 'flex';
+        });
+
+        btnCerrar.addEventListener('click', () => {
+            modal.style.display = 'none';
+            iframe.src = ""; // Clear on close
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                iframe.src = "";
             }
         });
     </script>
