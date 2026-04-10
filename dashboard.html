@@ -609,11 +609,16 @@
         // --- LÓGICA DE ASISTENCIAS ---
         async function fetchData() {
             if(!supabaseClient) return;
+            const main = document.querySelector('main');
+            
+            // Eliminar error anterior si existe
+            const oldErr = document.getElementById('debug-error');
+            if(oldErr) oldErr.remove();
+
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">↻ Descargando historial y geocercas...</td></tr>';
 
             try {
-                // Descargamos tanto las asistencias como los lugares guardados al mismo tiempo
                 const [checkinsRes, lugaresRes] = await Promise.all([
                     supabaseClient.from('checkins').select('*').order('created_at', { ascending: false }),
                     supabaseClient.from('lugares').select('*')
@@ -632,14 +637,28 @@
                 }
                 renderStats(data);
                 renderTable(data, misLugares);
-                renderReporte(data);
+                renderReporte(data, misLugares);
             } catch (error) {
-                tbody.innerHTML = `<tr><td colspan="4" style="color: #ef4444;">Error: ${error.message}</td></tr>`;
+                console.error("Error completo:", error);
+                const errorDiv = document.createElement('div');
+                errorDiv.id = 'debug-error';
+                errorDiv.style = "background: #ef4444; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-family: monospace; font-size: 0.8rem;";
+                errorDiv.innerHTML = `<b>⚠️ Error de Conexión:</b><br>${error.message || error.details || JSON.stringify(error)}<br><small>Verifica internet o si tu Supabase está activo.</small>`;
+                main.prepend(errorDiv);
+                tbody.innerHTML = `<tr><td colspan="4" style="color: #ef4444; text-align:center;">Error de carga. Ver detalle arriba.</td></tr>`;
             }
         }
 
         // Fórmula para medir distancias reales en la Tierra (Haversine)
-            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))); // Distancia en metros
+        function calcularDistancia(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Radio de la tierra en metros
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c; // Distancia en metros
         }
 
         // Helper para detectar lugar
@@ -703,15 +722,18 @@
                 const bgStyle = esLugarConocido ? 'background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.4); padding: 6px; border-radius: 6px;' : '';
 
                 const tr = document.createElement('tr');
+                const displayName = row.name || row.userPhone || 'Usuario Desconocido';
+                const displayPhone = row.userPhone || 'Sin Número';
+                
                 tr.innerHTML = `
                     <td>
-                        <div style="font-size: 1.15rem; font-weight: 600; color: var(--text-primary);">${row.name || 'Sin nombre'}</div>
+                        <div style="font-size: 1.15rem; font-weight: 600; color: var(--text-primary);">${displayName}</div>
                     </td>
                     <td>
                         <div style="font-size: 1.4rem; font-weight: 700; color: var(--accent-color);">${localeTime}</div>
                         <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 5px; display: flex; align-items: center;">📅 ${localeDate} ${badge}</div>
                     </td>
-                    <td style="font-family: monospace; font-size: 1.05rem; color: var(--text-primary);">${row.userPhone || 'N/A'}</td>
+                    <td style="font-family: monospace; font-size: 1.05rem; color: var(--text-primary);">${displayPhone}</td>
                     <td>
                         <div style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 8px; ${bgStyle}" title="${row.address || 'Sin dirección'}">📍 ${ubicacionIdentificada}</div>
                          ${row.mapUrl ? `<a href="${row.mapUrl}" target="_blank" class="btn btn-outline" style="padding: 6px 12px; font-size: 0.8rem;">Ver Mapa 🗺</a>` : '<span style="color:gray;">Sin Mapa</span>'}
@@ -722,7 +744,7 @@
         }
 
         // REPORTE CONSOLIDADO DIARIO
-        function renderReporte(data) {
+        function renderReporte(data, misLugares) {
             const tbody = document.getElementById('table-reporte');
             tbody.innerHTML = '';
             
@@ -781,12 +803,15 @@
 
             llaves.forEach(k => {
                 const fila = grupos[k];
+                const displayName = fila.nombre !== 'Sin nombre' ? fila.nombre : (fila.telefono || 'Desconocido');
+                const displayPhone = fila.telefono || 'Sin Número';
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="font-weight: bold; color: var(--accent-color); font-size: 1.1rem;">📅 ${fila.fecha}</td>
                     <td>
-                        <div style="font-weight: 600; font-size: 1.1rem; color: var(--text-primary);">${fila.nombre}</div>
-                        <div style="font-family: monospace; font-size: 0.9rem; color: var(--text-secondary);">${fila.telefono}</div>
+                        <div style="font-weight: 600; font-size: 1.1rem; color: var(--text-primary);">${displayName}</div>
+                        <div style="font-family: monospace; font-size: 0.9rem; color: var(--text-secondary);">${displayPhone}</div>
                     </td>
                     <td style="color: ${fila.entrada !== '--:--' ? 'var(--success-color)' : 'var(--text-secondary)'}; font-weight: 600;">${fila.entrada}</td>
                     ${configHorarios.usaComida ? `
