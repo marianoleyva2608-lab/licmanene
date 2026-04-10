@@ -183,9 +183,9 @@
                     asesoría con el Lic Manene.
                 </p>
                 <div class="cta-container">
-                    <button id="btn-agendar" class="cta-button">
+                    <a id="btn-agendar" class="cta-button" target="_blank" href="#">
                         <i class="far fa-calendar-alt"></i> AGENDA AHORA
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>
@@ -200,16 +200,16 @@
         // Coloca aquí tu link de Checkout Pro (ej: https://mpago.la/xxxxxx)
         const MERCADO_PAGO_LINK = "https://mpago.la/xxxxxx"; 
 
-        btnAgendar.addEventListener('click', () => {
-            if (MERCADO_PAGO_LINK.includes("xxxxxx")) {
-                alert("Licenciado Manene: Abriré la pestaña de cobro simulada.\n\n(Recuerda poner tu link de Mercado Pago real en la línea 200).");
-                window.open("https://www.mercadopago.com.mx/checkout/v1/payment/dummy", "_blank");
-            } else {
-                // Mercado Pago (y todos los bancos) bloquean los iFrames (Ventanas incrustadas) 
-                // para evitar robos de tarjetas. Por eso SIEMPRE debe abrirse en pestaña nueva segura.
-                window.open(MERCADO_PAGO_LINK, '_blank');
-            }
-        });
+        if (MERCADO_PAGO_LINK.includes("xxxxxx")) {
+            // Si es de prueba, configuro el link para ir al simulador
+            btnAgendar.href = "https://www.mercadopago.com.mx/checkout/v1/payment/dummy";
+            btnAgendar.addEventListener('click', () => {
+                alert("Licenciado Manene: Abriré una pestaña MUESTRA de cobro simulada.\n\n(No olvides poner tu link real en el código).");
+            });
+        } else {
+            // Si pusiste un link real, configuramos para que funcione como un hipervínculo natural (anti-bloqueos)
+            btnAgendar.href = MERCADO_PAGO_LINK;
+        }
     </script>
 </body>
 </html>
