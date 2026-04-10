@@ -201,11 +201,8 @@
         const MERCADO_PAGO_LINK = "https://mpago.la/xxxxxx"; 
 
         if (MERCADO_PAGO_LINK.includes("xxxxxx")) {
-            // Si es de prueba, configuro el link para ir al simulador propio
+            // Si es de prueba, configuro el link para ir al simulador propio sin alertas
             btnAgendar.href = "checkout-dummy.html";
-            btnAgendar.addEventListener('click', () => {
-                alert("Licenciado Manene: Abriré una pestaña MUESTRA de cobro simulada.\n\n(No olvides poner tu link real en el código).");
-            });
         } else {
             // Si pusiste un link real, configuramos para que funcione como un hipervínculo natural (anti-bloqueos)
             btnAgendar.href = MERCADO_PAGO_LINK;
