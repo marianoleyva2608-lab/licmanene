@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pasarela de Pago Segura - Lic Manene</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #f4f4f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .checkout-container {
+            background: white;
+            width: 100%;
+            max-width: 450px;
+            padding: 40px 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        .header h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.5rem;
+            color: #111;
+        }
+        .header p {
+            margin: 0;
+            color: #666;
+            font-size: 0.95rem;
+        }
+        .price {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: #d4af37; /* Dorado de la marca */
+            margin: 20px 0;
+        }
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #555;
+        }
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1rem;
+            box-sizing: border-box;
+            background: #fafafa;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: #d4af37;
+            background: #fff;
+        }
+        .flex-row {
+            display: flex;
+            gap: 15px;
+        }
+        .flex-row .form-group {
+            flex: 1;
+        }
+        .btn-pay {
+            width: 100%;
+            padding: 15px;
+            background: #111;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        .btn-pay:hover {
+            background: #333;
+        }
+        .secure-badge {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #888;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        /* Loading Overlay */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.9);
+            z-index: 100;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading-overlay .spinner {
+            font-size: 3rem;
+            color: #d4af37;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        .loading-overlay h3 {
+            color: #111;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .success-overlay {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .success-overlay i {
+            font-size: 4rem;
+            color: #10b981;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="checkout-container" id="payment-form-container">
+        <div class="header">
+            <h2>Asesoría Legal Lic Manene</h2>
+            <p>Introduce tus datos de pago para confirmar</p>
+            <div class="price">$500.00 MXN</div>
+        </div>
+
+        <form id="payment-form">
+            <div class="form-group">
+                <label>Titular de la tarjeta</label>
+                <input type="text" class="form-control" placeholder="Ej. Juan Pérez" required>
+            </div>
+            <div class="form-group">
+                <label>Número de Tarjeta</label>
+                <input type="text" class="form-control" placeholder="0000 0000 0000 0000" maxlength="19" required>
+            </div>
+            <div class="flex-row">
+                <div class="form-group">
+                    <label>Vencimiento</label>
+                    <input type="text" class="form-control" placeholder="MM/AA" maxlength="5" required>
+                </div>
+                <div class="form-group">
+                    <label>CVV</label>
+                    <input type="password" class="form-control" placeholder="123" maxlength="4" required>
+                </div>
+            </div>
+            <button type="submit" class="btn-pay">💳 Pagar y Agendar Cita</button>
+        </form>
+
+        <div class="secure-badge">
+            <i class="fas fa-lock"></i> Pagos encriptados de forma segura
+        </div>
+    </div>
+
+    <!-- Carga Exitoso -->
+    <div class="loading-overlay" id="loading-screen">
+        <div id="loading-state">
+            <i class="fas fa-circle-notch spinner"></i>
+            <h3>Procesando pago...</h3>
+            <p>No cierres esta ventana</p>
+        </div>
+        
+        <div id="success-state" class="success-overlay">
+            <i class="fas fa-check-circle"></i>
+            <h3>¡Pago Aprobado!</h3>
+            <p>Redirigiendo a tu calendario...</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('payment-form').addEventListener('submit', function(e) {
+            e.preventDefault(); // Evitamos que la página recargue real
+
+            // 1. Mostrar pantalla de carga
+            const loadingScreen = document.getElementById('loading-screen');
+            const loadingState = document.getElementById('loading-state');
+            const successState = document.getElementById('success-state');
+            
+            loadingScreen.style.display = 'flex';
+
+            // 2. Esperar 2 segundos simulando la conexión al banco
+            setTimeout(() => {
+                loadingState.style.display = 'none';
+                successState.style.display = 'flex';
+
+                // 3. Esperar 1.5 segundos para que lea "Pago Aprobado" y redirigir
+                setTimeout(() => {
+                    // AQUÍ ESTÁ EL LINK DE TU CALENDARIO (Que se abre al cobrar con éxito)
+                    window.location.href = "https://calendar.app.google/ECc8xnxyxkYPFtiC6?hl=es";
+                }, 1500);
+
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
