@@ -196,17 +196,12 @@
     <script>
         const btnAgendar = document.getElementById('btn-agendar');
 
-        // 1. LINK DE MERCADO PAGO ACTUALIZADO
-        // Coloca aquí tu link de Checkout Pro (ej: https://mpago.la/xxxxxx)
-        const MERCADO_PAGO_LINK = "https://mpago.la/xxxxxx"; 
-
-        if (MERCADO_PAGO_LINK.includes("xxxxxx")) {
-            // Si es de prueba, configuro el link para ir al simulador propio sin alertas
-            btnAgendar.href = "checkout-dummy.html";
-        } else {
-            // Si pusiste un link real, configuramos para que funcione como un hipervínculo natural (anti-bloqueos)
-            btnAgendar.href = MERCADO_PAGO_LINK;
-        }
+        // Modo de Pago Activo: PayPal Sandbox
+        // Redirigimos a la pasarela de prueba de PayPal que acabamos de implementar
+        btnAgendar.href = "paypal-checkout.html";
+        
+        // El link de Mercado Pago queda comentado por si se desea reactivar en el futuro
+        // const MERCADO_PAGO_LINK = "https://mpago.la/xxxxxx"; 
     </script>
 </body>
 </html>

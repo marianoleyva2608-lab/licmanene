@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pago Seguro con PayPal - Lic Manene</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PayPal SDK (Sandbox Mode) -->
+    <!-- Reemplaza 'test' por tu Client ID de PayPal Sandbox si tienes uno -->
+    <script src="https://www.paypal.com/sdk/js?client-id=test&currency=MXN"></script>
+    
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #0c0b0a;
+            color: #f8f8f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .checkout-container {
+            background: #1a1a1a;
+            width: 100%;
+            max-width: 450px;
+            padding: 40px 30px;
+            border-radius: 20px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            text-align: center;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        .header h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.6rem;
+            background: linear-gradient(to bottom, #fff5d1, #d4af37);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header p {
+            margin: 0;
+            color: #aaa;
+            font-size: 0.95rem;
+        }
+        .price {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: #d4af37;
+            margin: 25px 0;
+            text-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
+        }
+        #paypal-button-container {
+            margin-top: 30px;
+            min-height: 150px;
+        }
+        .secure-badge {
+            margin-top: 30px;
+            font-size: 0.8rem;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .back-link {
+            display: block;
+            margin-top: 20px;
+            color: #888;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.3s;
+        }
+        .back-link:hover {
+            color: #d4af37;
+        }
+        
+        /* Success Message Overlay */
+        #success-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+        }
+        #success-overlay i {
+            font-size: 5rem;
+            color: #34d399;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 20px rgba(52, 211, 153, 0.4));
+        }
+        #success-overlay h2 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+        #success-overlay p {
+            color: #aaa;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="checkout-container">
+        <div class="header">
+            <h2>Asesoría Lic Manene</h2>
+            <p>Confirma tu pago para agendar la cita</p>
+            <div class="price">$900.00 MXN</div>
+        </div>
+
+        <div id="paypal-button-container"></div>
+
+        <a href="index.html" class="back-link">
+            <i class="fas fa-arrow-left"></i> Volver atrás
+        </a>
+
+        <div class="secure-badge">
+            <i class="fas fa-shield-alt"></i> Transacción protegida por PayPal Sandbox
+        </div>
+    </div>
+
+    <!-- Overlay de Éxito -->
+    <div id="success-overlay">
+        <i class="fas fa-check-circle"></i>
+        <h2>¡Pago Confirmado!</h2>
+        <p>Tu asesoría legal ha sido procesada con éxito.<br>Estamos redirigiéndote a tu cita...</p>
+    </div>
+
+    <script>
+        paypal.Buttons({
+            createOrder: function(data, actions) {
+                // Configura los detalles de la transacción
+                return actions.order.create({
+                    purchase_units: [{
+                        description: "Asesoría Legal Online - Lic Manene",
+                        amount: {
+                            currency_code: "MXN",
+                            value: "900.00"
+                        }
+                    }]
+                });
+            },
+            onApprove: function(data, actions) {
+                // Captura el dinero de la transacción
+                return actions.order.capture().then(function(details) {
+                    // Mostrar mensaje de éxito
+                    document.getElementById('success-overlay').style.display = 'flex';
+                    
+                    // Esperar 3 segundos antes de redirigir al calendario
+                    setTimeout(function() {
+                        window.location.href = "https://calendar.app.google/ECc8xnxyxkYPFtiC6?hl=es";
+                    }, 3000);
+                });
+            },
+            onError: function(err) {
+                console.error('Error en el pago de PayPal:', err);
+                alert('Hubo un problema al procesar el pago. Por favor, inténtalo de nuevo.');
+            }
+        }).render('#paypal-button-container');
+    </script>
+</body>
+</html>
