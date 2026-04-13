@@ -7,6 +7,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <!-- PayPal SDK (Sandbox Mode) -->
     <!-- Reemplaza 'test' por tu Client ID de PayPal Sandbox si tienes uno -->
     <script src="https://www.paypal.com/sdk/js?client-id=test&currency=MXN"></script>
@@ -83,6 +86,31 @@
             gap: 5px;
         }
 
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            outline: none;
+        }
+        .form-group input:focus {
+            border-color: #d4af37;
+        }
+
         #paypal-button-container {
             margin-top: 10px;
             min-height: 150px;
@@ -155,6 +183,16 @@
             <iframe src="https://calendar.google.com/calendar/embed?src=marianoleyva2608%40gmail.com&ctz=America%2FMexico_City&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&mode=WEEK&bgcolor=%231a1a1a"></iframe>
         </div>
 
+        <!-- Campos de Datos del Cliente -->
+        <div class="form-group">
+            <label>Tu Nombre Completo</label>
+            <input type="text" id="cust-name" placeholder="Ej. Juan Pérez">
+        </div>
+        <div class="form-group">
+            <label>WhatsApp / Teléfono</label>
+            <input type="text" id="cust-phone" placeholder="Ej. 5512345678">
+        </div>
+
         <div id="paypal-button-container"></div>
 
         <a href="index.html" class="back-link">
@@ -174,6 +212,11 @@
     </div>
 
     <script>
+        // Inicializar Supabase (Conectado a tu Dashboard Central)
+        const supabaseUrl = "https://agent-supabase.c4o2yg.easypanel.host";
+        const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
         paypal.Buttons({
             createOrder: function(data, actions) {
                 // Configura los detalles de la transacción
@@ -189,7 +232,24 @@
             },
             onApprove: function(data, actions) {
                 // Captura el dinero de la transacción
-                return actions.order.capture().then(function(details) {
+                return actions.order.capture().then(async function(details) {
+                    
+                    // --- GUARDAR EN SUPABASE DIRECTAMENTE ---
+                    const cliente = document.getElementById('cust-name').value || details.payer.name.given_name + " " + details.payer.name.surname;
+                    const contacto = document.getElementById('cust-phone').value || details.payer.email_address;
+                    
+                    try {
+                        await supabase.from('citas').insert([{
+                            cliente: cliente,
+                            fecha_cita: new Date().toISOString(), // Se puede pulir para capturar la fecha exacta de Google si fuera necesario
+                            contacto: contacto,
+                            paypal_order_id: data.orderID,
+                            monto: 900.00
+                        }]);
+                    } catch (err) {
+                        console.error("Error guardando en Supabase:", err);
+                    }
+
                     // Mostrar mensaje de éxito
                     document.getElementById('success-overlay').style.display = 'flex';
                     
