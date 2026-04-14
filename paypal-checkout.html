@@ -177,7 +177,12 @@
                     
                     // Guardar selección
                     selectedDateTime = info.date;
-                    document.getElementById('display-date').innerText = info.date.toLocaleString();
+                    const end = new Date(selectedDateTime.getTime() + (50 * 60 * 1000));
+                    
+                    const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: true };
+                    const rangeText = `${selectedDateTime.toLocaleDateString()} | ${selectedDateTime.toLocaleTimeString([], timeOptions)} a ${end.toLocaleTimeString([], timeOptions)}`;
+                    
+                    document.getElementById('display-date').innerText = rangeText;
                     document.getElementById('selected-info').style.display = 'block';
                     
                     // Scroll suave hacia abajo
