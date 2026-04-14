@@ -133,6 +133,11 @@
 
         <div id="paypal-button-container"></div>
 
+        <!-- Botón de Prueba Técnica (Solo para validar conexión) -->
+        <button onclick="simularPagoExitoso()" style="margin-top: 15px; background: #333; color: #888; border: 1px solid #444; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.7rem; width: 100%;">
+            🧪 Simular Cita de Prueba (Bypass Pago)
+        </button>
+
         <div class="secure-badge">
             <i class="fas fa-shield-alt"></i> Pago seguro y sincronización inmediata
         </div>
@@ -240,6 +245,39 @@
                 });
             }
         }).render('#paypal-button-container');
+
+        // FUNCIÓN DE PRUEBA TÉCNICA
+        async function simularPagoExitoso() {
+            if (!selectedDateTime) { alert("Elige un horario primero"); return; }
+            const nombre = document.getElementById('cust-name').value || "PRUEBA AUTOMATIZADA";
+            const contacto = document.getElementById('cust-phone').value || "0000000000";
+            
+            console.log("Iniciando simulación...");
+            try {
+                // 1. Supabase
+                await _supabase.from('citas').insert([{
+                    cliente: nombre,
+                    fecha_cita: selectedDateTime.toISOString(),
+                    contacto: contacto,
+                    paypal_order_id: 'MOCK_TEST_' + Date.now(),
+                    monto: 900
+                }]);
+
+                // 2. Google
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({
+                        cliente: nombre, contacto: contacto, fecha: selectedDateTime.toISOString(), pagoId: 'MOCK_TEST'
+                    })
+                });
+                
+                document.getElementById('success-overlay').style.display = 'flex';
+                alert("✅ Sincronización Exitosa. Revisa tu Google Calendar.");
+            } catch (e) {
+                alert("Error: " + e.message);
+            }
+        }
     </script>
 </body>
 </html>
