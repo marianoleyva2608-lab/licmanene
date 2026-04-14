@@ -3,21 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pago Seguro con PayPal - Lic Manene</title>
+    <title>Agenda tu Asesoría - Lic Manene</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
+    <!-- FullCalendar SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
     <!-- PayPal SDK (Sandbox Mode) -->
-    <!-- Reemplaza 'test' por tu Client ID de PayPal Sandbox si tienes uno -->
     <script src="https://www.paypal.com/sdk/js?client-id=test&currency=MXN"></script>
     
     <style>
+        :root {
+            --accent: #d4af37;
+            --bg: #0c0b0a;
+            --surface: #1a1a1a;
+        }
         body {
             font-family: 'Montserrat', sans-serif;
-            background-color: #0c0b0a;
+            background-color: var(--bg);
             color: #f8f8f8;
             display: flex;
             justify-content: center;
@@ -27,161 +34,94 @@
             padding: 20px;
         }
         .checkout-container {
-            background: #1a1a1a;
+            background: var(--surface);
             width: 100%;
-            max-width: 450px;
-            padding: 40px 30px;
+            max-width: 600px;
+            padding: 30px;
             border-radius: 20px;
             border: 1px solid rgba(212, 175, 55, 0.3);
             box-shadow: 0 20px 40px rgba(0,0,0,0.6);
             text-align: center;
         }
-        .header {
-            margin-bottom: 30px;
-        }
         .header h2 {
             margin: 0 0 10px 0;
             font-size: 1.6rem;
-            background: linear-gradient(to bottom, #fff5d1, #d4af37);
+            background: linear-gradient(to bottom, #fff5d1, #accent);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-        }
-        .header p {
-            margin: 0;
-            color: #aaa;
-            font-size: 0.95rem;
+            color: var(--accent);
         }
         .price {
-            font-size: 2.8rem;
+            font-size: 2.2rem;
             font-weight: 700;
-            color: #d4af37;
-            margin: 15px 0;
-            text-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
+            color: var(--accent);
+            margin-bottom: 20px;
         }
         
-        /* Contenedor del Calendario */
-        .calendar-preview {
-            width: 100%;
-            height: 350px;
+        /* Calendario Personalizado */
+        #calendar-container {
             background: #222;
             border-radius: 12px;
-            margin: 20px 0;
-            overflow: hidden;
+            padding: 15px;
+            margin-bottom: 25px;
             border: 1px solid rgba(255, 255, 255, 0.1);
+            min-height: 450px;
         }
-        .calendar-preview iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            filter: invert(90%) hue-rotate(180deg); /* Dark mode hack for Google Calendar */
-        }
+        .fc { color: white; font-size: 0.85rem; }
+        .fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255,255,255,0.05); }
+        .fc-button-primary { background-color: var(--accent) !important; border: none !important; color: black !important; font-weight: 600 !important; }
+        .fc-event { cursor: not-allowed; opacity: 0.7; }
+        .fc-timegrid-slot { height: 3em !important; }
         
-        .availability-note {
-            font-size: 0.8rem;
-            color: #34d399;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
+        .selected-slot-info {
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid var(--accent);
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            display: none;
+            color: var(--accent);
+            font-weight: 600;
         }
 
-        .form-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 0.85rem;
-            color: #aaa;
-        }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 0.8rem; color: #aaa; }
         .form-group input {
-            width: 100%;
-            padding: 12px;
+            width: 100%; padding: 12px;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: white;
-            outline: none;
+            border-radius: 8px; color: white; outline: none;
         }
-        .form-group input:focus {
-            border-color: #d4af37;
-        }
+        .form-group input:focus { border-color: var(--accent); }
 
-        #paypal-button-container {
-            margin-top: 10px;
-            min-height: 150px;
-        }
-        .secure-badge {
-            margin-top: 30px;
-            font-size: 0.8rem;
-            color: #666;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .back-link {
-            display: block;
-            margin-top: 20px;
-            color: #888;
-            text-decoration: none;
-            font-size: 0.85rem;
-            transition: color 0.3s;
-        }
-        .back-link:hover {
-            color: #d4af37;
-        }
+        #paypal-button-container { margin-top: 15px; }
+        .secure-badge { margin-top: 20px; font-size: 0.75rem; color: #666; }
         
-        /* Success Message Overlay */
         #success-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.95);
-            z-index: 1000;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 20px;
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.95); z-index: 1000;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
         }
-        #success-overlay i {
-            font-size: 5rem;
-            color: #34d399;
-            margin-bottom: 20px;
-            filter: drop-shadow(0 0 20px rgba(52, 211, 153, 0.4));
-        }
-        #success-overlay h2 {
-            font-size: 2rem;
-            margin-bottom: 15px;
-        }
-        #success-overlay p {
-            color: #aaa;
-            font-size: 1.1rem;
-        }
+        #success-overlay i { font-size: 5rem; color: #34d399; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
     <div class="checkout-container">
         <div class="header">
-            <h2>Asesoría Lic Manene</h2>
-            <p>Consulta disponibilidad y paga para agendar</p>
+            <h2>Agenda tu Asesoría</h2>
+            <p>1. Selecciona horario | 2. Paga tu cita</p>
             <div class="price">$900.00 MXN</div>
         </div>
 
-        <div class="availability-note">
-            <i class="fas fa-eye"></i> Revisa los horarios disponibles abajo:
+        <div id="calendar-container">
+            <div id="calendar"></div>
         </div>
 
-        <!-- Visor de Calendario en Tiempo Real -->
-        <div class="calendar-preview">
-            <iframe src="https://calendar.google.com/calendar/embed?src=marianoleyva2608%40gmail.com&ctz=America%2FMexico_City&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=0&showCalendars=0&showTz=0&mode=WEEK&bgcolor=%231a1a1a"></iframe>
+        <div id="selected-info" class="selected-slot-info">
+            <i class="fas fa-calendar-check"></i> Horario seleccionado: <span id="display-date"></span>
         </div>
 
-        <!-- Campos de Datos del Cliente -->
         <div class="form-group">
             <label>Tu Nombre Completo</label>
             <input type="text" id="cust-name" placeholder="Ej. Juan Pérez">
@@ -193,91 +133,103 @@
 
         <div id="paypal-button-container"></div>
 
-        <a href="index.html" class="back-link">
-            <i class="fas fa-arrow-left"></i> Volver atrás
-        </a>
-
         <div class="secure-badge">
-            <i class="fas fa-shield-alt"></i> Transacción protegida por PayPal Sandbox
+            <i class="fas fa-shield-alt"></i> Pago seguro y sincronización inmediata
         </div>
     </div>
 
-    <!-- Overlay de Éxito -->
     <div id="success-overlay">
         <i class="fas fa-check-circle"></i>
-        <h2>¡Pago Confirmado!</h2>
-        <p>Tu asesoría legal ha sido procesada con éxito.<br>Estamos redirigiéndote a tu cita...</p>
+        <h2>¡Cita Confirmada!</h2>
+        <p>Tu asesoría ha sido agendada con éxito.<br>Recibirás un correo con los detalles en breve.</p>
+        <button class="btn" style="margin-top:20px; background:var(--accent); padding:10px 20px; border:none; border-radius:8px; cursor:pointer;" onclick="window.location.href='index.html'">Volver al Inicio</button>
     </div>
 
     <script>
-        // Inicializar Supabase (Conectado a tu Dashboard Central)
-        const supabaseUrl = "https://agent-supabase.c4o2yg.easypanel.host";
-        const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
-        const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNUZZgYB9f4otl705kNb3PWdjKEl7Rf5ECdqIGLafM6qbIQovZ1MyixyRpKCl3uGLw/exec";
+        const SUPABASE_URL = "https://agent-supabase.c4o2yg.easypanel.host";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
+        
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let selectedDateTime = null;
 
+        // Inicializar Calendario Propio
+        document.addEventListener('DOMContentLoaded', function() {
+            const calendarEl = document.getElementById('calendar');
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'timeGridWeek',
+                locale: 'es',
+                slotMinTime: '09:00:00',
+                slotMaxTime: '19:00:00',
+                allDaySlot: false,
+                selectable: true,
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
+                events: GOOGLE_SCRIPT_URL, // Carga automática de ocupados
+                dateClick: function(info) {
+                    // Validar si la hora está en el futuro
+                    if (info.date < new Date()) {
+                        alert("Por favor selecciona una fecha futura.");
+                        return;
+                    }
+                    
+                    // Guardar selección
+                    selectedDateTime = info.date;
+                    document.getElementById('display-date').innerText = info.date.toLocaleString();
+                    document.getElementById('selected-info').style.display = 'block';
+                    
+                    // Scroll suave hacia abajo
+                    document.getElementById('selected-info').scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+            calendar.render();
+        });
+
+        // Configurar PayPal
         paypal.Buttons({
             createOrder: function(data, actions) {
-                // Configura los detalles de la transacción
+                if (!selectedDateTime) {
+                    alert("Por favor, selecciona primero un horario en el calendario.");
+                    return;
+                }
                 return actions.order.create({
                     purchase_units: [{
-                        description: "Asesoría Legal Online - Lic Manene",
-                        amount: {
-                            currency_code: "MXN",
-                            value: "900.00"
-                        }
+                        description: "Asesoría Legal (Agendada: " + selectedDateTime.toLocaleString() + ")",
+                        amount: { currency_code: "MXN", value: "900.00" }
                     }]
                 });
             },
             onApprove: function(data, actions) {
-                // Captura el dinero de la transacción
                 return actions.order.capture().then(async function(details) {
-                    
-                    // --- GUARDAR EN SUPABASE DIRECTAMENTE ---
-                    const cliente = document.getElementById('cust-name').value || details.payer.name.given_name + " " + details.payer.name.surname;
+                    const nombre = document.getElementById('cust-name').value || details.payer.name.given_name;
                     const contacto = document.getElementById('cust-phone').value || details.payer.email_address;
                     
                     try {
-                        // 1. Guardar en Supabase (Dashboard Central)
+                        // 1. Guardar en Supabase
                         await _supabase.from('citas').insert([{
-                            cliente: cliente,
-                            fecha_cita: new Date().toISOString(),
+                            cliente: nombre,
+                            fecha_cita: selectedDateTime.toISOString(),
                             contacto: contacto,
                             paypal_order_id: data.orderID,
-                            monto: 900.00
+                            monto: 900
                         }]);
 
-                        // 2. Enviar a Google Calendar vía Apps Script (Tu propio puente directo)
-                        const googleScriptUrl = "https://script.google.com/macros/s/AKfycbw70qwG0K2mr5mcofzTUprmS26QnIEyecKnfsCM7bUKIls_alqb7Nk9b14ffD9_XW4/exec";
-                        
-                        fetch(googleScriptUrl, {
+                        // 2. Enviar a Google Calendar
+                        await fetch(GOOGLE_SCRIPT_URL, {
                             method: 'POST',
-                            mode: 'no-cors', // Necesario para Google Apps Script
-                            cache: 'no-cache',
-                            headers: { 'Content-Type': 'application/json' },
+                            mode: 'no-cors',
                             body: JSON.stringify({
-                                cliente: cliente,
+                                cliente: nombre,
                                 contacto: contacto,
-                                fecha: new Date().toISOString(),
+                                fecha: selectedDateTime.toISOString(),
                                 pagoId: data.orderID
                             })
                         });
-
-                    } catch (err) {
-                        console.error("Error en la sincronización:", err);
+                    } catch (e) {
+                        console.error("Error en sincronización:", e);
                     }
 
-                    // Mostrar mensaje de éxito
                     document.getElementById('success-overlay').style.display = 'flex';
-                    
-                    // Esperar 3 segundos antes de redirigir al calendario oficial
-                    setTimeout(function() {
-                        window.location.href = "https://calendar.app.google/gMTQ5Z1XxZsZF2F38";
-                    }, 3000);
                 });
-            },
-            onError: function(err) {
-                console.error('Error en el pago de PayPal:', err);
-                alert('Hubo un problema al procesar el pago. Por favor, inténtalo de nuevo.');
             }
         }).render('#paypal-button-container');
     </script>
