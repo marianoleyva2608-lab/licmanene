@@ -203,7 +203,7 @@
         // El link de Mercado Pago queda comentado por si se desea reactivar en el futuro
         // const MERCADO_PAGO_LINK = "https://mpago.la/xxxxxx"; 
 
-        // Acceso Oculto al Dashboard: Multi-Tap (5 Toques) o Tap Largo de Seguridad
+        // Acceso Oculto al Panel de Citas: Multi-Tap (5 Toques) o Tap Largo de Seguridad
         const headline = document.querySelector('.headline');
         
         // 1. Deshabilitar selección de texto y menú contextual en el celular para que no estorben
@@ -216,7 +216,7 @@
         let pressTimer;
         const startPress = () => {
             pressTimer = setTimeout(() => {
-                window.location.href = 'dashboard.html';
+                window.location.href = 'panel-citas.html';
             }, 2000); 
         };
         const cancelPress = () => clearTimeout(pressTimer);
@@ -234,7 +234,7 @@
         headline.addEventListener('click', (e) => {
             contToques++;
             if (contToques === 5) {
-                window.location.href = 'dashboard.html';
+                window.location.href = 'panel-citas.html';
             }
             clearTimeout(limpiarTap);
             limpiarTap = setTimeout(() => { contToques = 0; }, 1200); // 1.2s para completarlos

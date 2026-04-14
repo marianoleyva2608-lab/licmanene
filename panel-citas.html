@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Citas - Lic Manene</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --accent: #d4af37;
+            --bg: #0c0b0a;
+            --surface: #1a1a1a;
+        }
+        body { 
+            font-family: 'Montserrat', sans-serif; 
+            background-color: var(--bg); 
+            color: #f8f8f8; 
+            margin: 0; 
+            padding: 20px; 
+        }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 2px solid var(--accent); 
+            padding-bottom: 15px; 
+            margin-bottom: 25px; 
+        }
+        .header h1 { 
+            color: var(--accent); 
+            margin: 0; 
+            font-size: 1.8rem;
+        }
+        /* Botones dorados modernos */
+        .btn { 
+            background: linear-gradient(180deg, #fad373 0%, #cd9f2c 60%, #a47614 100%);
+            color: #1a1a1a; 
+            padding: 10px 20px; 
+            border: 2px solid #ffeba1; 
+            border-radius: 50px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            transition: all 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.6), 0 2px 5px rgba(0,0,0,0.5);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.8), 0 5px 15px rgba(212, 175, 55, 0.5);
+        }
+
+        /* Tabla oscura premium */
+        .table-container {
+            overflow-x: auto;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            background: var(--surface); 
+            border-radius: 12px; 
+            overflow: hidden; 
+            border: 1px solid rgba(212, 175, 55, 0.2);
+        }
+        th, td { 
+            padding: 18px; 
+            text-align: left; 
+            border-bottom: 1px solid rgba(255,255,255,0.05); 
+        }
+        th { 
+            background: rgba(212, 175, 55, 0.1); 
+            color: var(--accent); 
+            font-weight: 600; 
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+        tr:hover { background: rgba(255,255,255,0.03); }
+        tr:last-child td { border-bottom: none; }
+        
+        .badge { 
+            background: #34d399; 
+            color: #064e3b; 
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            font-size: 0.8rem; 
+            font-weight: 700; 
+        }
+
+        /* Modal para Bloqueos */
+        .modal { 
+            display: none; 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.85); 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 100;
+        }
+        .modal-content { 
+            background: var(--surface); 
+            padding: 30px; 
+            border-radius: 15px; 
+            border: 1px solid var(--accent); 
+            width: 90%; 
+            max-width: 400px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #ccc; font-size: 0.9rem; }
+        .form-group input { 
+            width: 100%; 
+            padding: 12px; 
+            background: #111; 
+            border: 1px solid #444; 
+            color: white; 
+            border-radius: 8px; 
+            outline: none;
+            box-sizing: border-box;
+        }
+        .form-group input:focus { border-color: var(--accent); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-gavel"></i> Panel de Control</h1>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="document.getElementById('bloqueo-modal').style.display='flex'">🚫 Bloquear Horario</button>
+            <button class="btn" style="background: transparent; color: var(--accent); border-color: var(--accent); box-shadow: none;" onclick="window.location.href='index.html'">Cerrar Sesión</button>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Contacto (WhatsApp)</th>
+                    <th>Fecha y Hora de la Cita</th>
+                    <th>ID de Pago</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-citas">
+                <tr><td colspan="5" style="text-align: center; color: #888;">Cargando citas...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal para bloquear horarios -->
+    <div id="bloqueo-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--accent); margin-top: 0;"><i class="fas fa-lock"></i> Bloquear Espacio</h2>
+            <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 20px;">
+                Selecciona la fecha y hora. Esto enviará un registro de bloqueo a Google Calendar y evitará que los clientes puedan agendar en ese momento.
+            </p>
+            <div class="form-group">
+                <label>Fecha y Hora del Bloqueo</label>
+                <input type="datetime-local" id="fecha-bloqueo">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                <button class="btn" style="background: #333; color: white; border-color: #555; box-shadow: none;" onclick="document.getElementById('bloqueo-modal').style.display='none'">Cancelar</button>
+                <button class="btn" onclick="bloquearHorario()">Confirmar Bloqueo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://agent-supabase.c4o2yg.easypanel.host";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHt8ZXsMfrgb26K8finQWreDcmPs3n7nWrfrSLNIaKF4cpgBdTcjQQfWEu6oaM2IpD/exec";
+        
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function cargarCitas() {
+            const tbody = document.getElementById('tabla-citas');
+            try {
+                // Fetch recent appointments (ordered by date descending)
+                const { data, error } = await _supabase
+                    .from('citas')
+                    .select('*')
+                    .order('fecha_cita', { ascending: false });
+                
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #888;">No hay registros disponibles.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                data.forEach(cita => {
+                    const fechaObj = new Date(cita.fecha_cita);
+                    const fechaFormat = fechaObj.toLocaleDateString('es-MX', {day: '2-digit', month: 'short', year: 'numeric'}) 
+                                      + ' | ' + fechaObj.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    
+                    const isBloqueo = cita.cliente.toUpperCase().includes("BLOQUEADO");
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="font-weight: 600; color: ${isBloqueo ? '#ef4444' : '#fff'};">
+                            ${isBloqueo ? '<i class="fas fa-ban"></i> BLOQUEADO' : cita.cliente}
+                        </td>
+                        <td style="color: #bbb;">${isBloqueo ? '-' : cita.contacto}</td>
+                        <td style="color: var(--accent);">${fechaFormat}</td>
+                        <td style="color: #666; font-family: monospace;">${cita.paypal_order_id}</td>
+                        <td>
+                            <span class="badge" style="background: ${isBloqueo ? '#ef4444' : '#d4af37'}; color: ${isBloqueo ? '#fff' : '#000'};">
+                                ${isBloqueo ? 'No Disponible' : 'Cita Pagada'}
+                            </span>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error("Error cargando citas:", error);
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #ef4444;">Error al conectar con la base de datos Supabase.</td></tr>';
+            }
+        }
+
+        async function bloquearHorario() {
+            const inputFecha = document.getElementById('fecha-bloqueo').value;
+            if(!inputFecha) { alert("Por favor selecciona una fecha y hora primero."); return; }
+            
+            // Requerimos redondear el horario para la lógica de 50 min.
+            const fechaObj = new Date(inputFecha);
+            const isoString = fechaObj.toISOString();
+
+            document.getElementById('bloqueo-modal').style.display='none';
+
+            try {
+                // 1. Guardar en Supabase como "BLOQUEADO"
+                await _supabase.from('citas').insert([{
+                    cliente: 'BLOQUEADO',
+                    fecha_cita: isoString,
+                    contacto: '-',
+                    paypal_order_id: 'BLOQUEO_MANUAL_' + Date.now(),
+                    monto: 0
+                }]);
+
+                // 2. Sincronizar hacia Google Calendar
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({
+                        cliente: 'BLOQUEO MANUAL',
+                        contacto: '-',
+                        fecha: isoString,
+                        pagoId: 'BLOQUEO_MANUAL'
+                    })
+                });
+
+                alert("Horario bloqueado con éxito. Ya nadie podrá agendar en este bloque.");
+                cargarCitas();
+            } catch(e) {
+                alert("Ocurrió un error al intentar bloquear: " + e.message);
+            }
+        }
+
+        // Ejecutar al cargar la página
+        cargarCitas();
+    </script>
+</body>
+</html>
