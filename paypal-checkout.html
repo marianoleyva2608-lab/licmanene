@@ -239,15 +239,33 @@
                     const contacto = document.getElementById('cust-phone').value || details.payer.email_address;
                     
                     try {
+                        // 1. Guardar en Supabase (Dashboard Central)
                         await supabase.from('citas').insert([{
                             cliente: cliente,
-                            fecha_cita: new Date().toISOString(), // Se puede pulir para capturar la fecha exacta de Google si fuera necesario
+                            fecha_cita: new Date().toISOString(),
                             contacto: contacto,
                             paypal_order_id: data.orderID,
                             monto: 900.00
                         }]);
+
+                        // 2. Enviar a Google Calendar vía Apps Script (Tu propio puente directo)
+                        const googleScriptUrl = "https://script.google.com/macros/s/AKfycbw70qwG0K2mr5mcofzTUprmS26QnIEyecKnfsCM7bUKIls_alqb7Nk9b14ffD9_XW4/exec";
+                        
+                        fetch(googleScriptUrl, {
+                            method: 'POST',
+                            mode: 'no-cors', // Necesario para Google Apps Script
+                            cache: 'no-cache',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                cliente: cliente,
+                                contacto: contacto,
+                                fecha: new Date().toISOString(),
+                                pagoId: data.orderID
+                            })
+                        });
+
                     } catch (err) {
-                        console.error("Error guardando en Supabase:", err);
+                        console.error("Error en la sincronización:", err);
                     }
 
                     // Mostrar mensaje de éxito
