@@ -159,9 +159,10 @@
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
                 locale: 'es',
-                slotMinTime: '09:00:00',
-                slotMaxTime: '19:00:00',
-                slotDuration: '00:50:00', // Bloques de 50 minutos
+                slotMinTime: '08:00:00', // Comienza a las 8 AM
+                slotMaxTime: '20:00:00', // Termina a las 8 PM
+                slotDuration: '00:50:00', // Bloques exactos de 50 minutos
+                snapDuration: '00:50:00', // El selector salta de 50 en 50
                 allDaySlot: false,
                 selectable: true,
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
