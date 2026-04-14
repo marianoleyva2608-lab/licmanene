@@ -216,7 +216,7 @@
         let pressTimer;
         const startPress = () => {
             pressTimer = setTimeout(() => {
-                window.location.href = 'panel-citas.html';
+                window.location.href = 'dashboard.html';
             }, 2000); 
         };
         const cancelPress = () => clearTimeout(pressTimer);
@@ -234,7 +234,7 @@
         headline.addEventListener('click', (e) => {
             contToques++;
             if (contToques === 5) {
-                window.location.href = 'panel-citas.html';
+                window.location.href = 'dashboard.html';
             }
             clearTimeout(limpiarTap);
             limpiarTap = setTimeout(() => { contToques = 0; }, 1200); // 1.2s para completarlos
