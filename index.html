@@ -202,6 +202,43 @@
         
         // El link de Mercado Pago queda comentado por si se desea reactivar en el futuro
         // const MERCADO_PAGO_LINK = "https://mpago.la/xxxxxx"; 
+
+        // Acceso Oculto al Dashboard: Multi-Tap (5 Toques) o Tap Largo de Seguridad
+        const headline = document.querySelector('.headline');
+        
+        // 1. Deshabilitar selección de texto y menú contextual en el celular para que no estorben
+        headline.style.userSelect = 'none';
+        headline.style.webkitUserSelect = 'none';
+        headline.style.webkitTouchCallout = 'none';
+        headline.oncontextmenu = (e) => { e.preventDefault(); return false; };
+
+        // 2. Lógica del Tap Largo (Reducido a 2 Segundos)
+        let pressTimer;
+        const startPress = () => {
+            pressTimer = setTimeout(() => {
+                window.location.href = 'dashboard.html';
+            }, 2000); 
+        };
+        const cancelPress = () => clearTimeout(pressTimer);
+
+        headline.addEventListener('touchstart', startPress, {passive: true});
+        headline.addEventListener('touchend', cancelPress);
+        headline.addEventListener('touchmove', cancelPress);
+        headline.addEventListener('mousedown', startPress);
+        headline.addEventListener('mouseup', cancelPress);
+        headline.addEventListener('mouseleave', cancelPress);
+
+        // 3. Lógica Alternativa: Dar 5 toques ultra-rápidos (Por si el Tap Largo sigue fallando)
+        let contToques = 0;
+        let limpiarTap;
+        headline.addEventListener('click', (e) => {
+            contToques++;
+            if (contToques === 5) {
+                window.location.href = 'dashboard.html';
+            }
+            clearTimeout(limpiarTap);
+            limpiarTap = setTimeout(() => { contToques = 0; }, 1200); // 1.2s para completarlos
+        });
     </script>
 </body>
 </html>
