@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel de Citas - Lic Manene</title>
-    <meta http-equiv="cache-control" content="no-cache, must-revalidate, post-check=0, pre-check=0">
-    <meta http-equiv="expires" content="0">
-    <meta http-equiv="pragma" content="no-cache">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- FullCalendar SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     
     <style>
         :root {
@@ -107,10 +108,25 @@
             padding: 30px; 
             border-radius: 15px; 
             border: 1px solid var(--accent); 
-            width: 90%; 
-            max-width: 400px; 
+            width: 95%; 
+            max-width: 800px; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            max-height: 90vh;
+            overflow-y: auto;
         }
+        #block-calendar {
+            background: #111;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            min-height: 500px;
+            color: white;
+        }
+        .fc { font-size: 0.85rem; }
+        .fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255,255,255,0.05); }
+        .fc-button-primary { background-color: var(--accent) !important; border: none !important; color: black !important; font-weight: 600 !important; }
+        .fc-daygrid-day-number, .fc-col-header-cell-cushion { color: #ccc; text-decoration: none; }
+        .fc-list-day-text, .fc-list-day-side-text { color: var(--accent); }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; margin-bottom: 8px; color: #ccc; font-size: 0.9rem; }
         .form-group input { 
@@ -130,7 +146,7 @@
     <div class="header">
         <h1><i class="fas fa-gavel"></i> Panel de Control</h1>
         <div style="display: flex; gap: 10px;">
-            <button class="btn" onclick="document.getElementById('bloqueo-modal').style.display='flex'">🚫 Bloquear Horario</button>
+            <button class="btn" onclick="abrirModalBloqueo()">🚫 Bloquear Horario</button>
             <button class="btn" style="background: transparent; color: var(--accent); border-color: var(--accent); box-shadow: none;" onclick="window.location.href='index.html'">Cerrar Sesión</button>
         </div>
     </div>
@@ -157,15 +173,15 @@
         <div class="modal-content">
             <h2 style="color: var(--accent); margin-top: 0;"><i class="fas fa-lock"></i> Bloquear Espacio</h2>
             <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 20px;">
-                Selecciona la fecha y hora. Esto enviará un registro de bloqueo a Google Calendar y evitará que los clientes puedan agendar en ese momento.
+                Selecciona un espacio en blanco en el calendario para crear un bloqueo. Esto evitará que los clientes agenden en ese horario.
             </p>
-            <div class="form-group">
-                <label>Fecha y Hora del Bloqueo</label>
-                <input type="datetime-local" id="fecha-bloqueo">
+            <div id="block-calendar"></div>
+            <div id="selected-info" style="margin-top: 15px; color: var(--accent); font-weight: 600; display: none;">
+                <i class="fas fa-clock"></i> Bloqueo seleccionado: <span id="display-fecha"></span>
             </div>
-            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                 <button class="btn" style="background: #333; color: white; border-color: #555; box-shadow: none;" onclick="document.getElementById('bloqueo-modal').style.display='none'">Cancelar</button>
-                <button class="btn" onclick="bloquearHorario()">Confirmar Bloqueo</button>
+                <button id="btn-confirmar-bloqueo" class="btn" style="opacity: 0.5; pointer-events: none;" onclick="confirmarBloqueo()">Confirmar Bloqueo</button>
             </div>
         </div>
     </div>
@@ -176,11 +192,12 @@
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHt8ZXsMfrgb26K8finQWreDcmPs3n7nWrfrSLNIaKF4cpgBdTcjQQfWEu6oaM2IpD/exec";
         
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let blockCalendar = null;
+        let selectedBlockDate = null;
 
         async function cargarCitas() {
             const tbody = document.getElementById('tabla-citas');
             try {
-                // Fetch recent appointments (ordered by date descending)
                 const { data, error } = await _supabase
                     .from('citas')
                     .select('*')
@@ -223,14 +240,45 @@
             }
         }
 
-        async function bloquearHorario() {
-            const inputFecha = document.getElementById('fecha-bloqueo').value;
-            if(!inputFecha) { alert("Por favor selecciona una fecha y hora primero."); return; }
+        function abrirModalBloqueo() {
+            document.getElementById('bloqueo-modal').style.display = 'flex';
             
-            // Requerimos redondear el horario para la lógica de 50 min.
-            const fechaObj = new Date(inputFecha);
-            const isoString = fechaObj.toISOString();
+            if (!blockCalendar) {
+                const calendarEl = document.getElementById('block-calendar');
+                blockCalendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'timeGridWeek',
+                    locale: 'es',
+                    slotMinTime: '08:00:00',
+                    slotMaxTime: '20:00:00',
+                    slotDuration: '00:50:00',
+                    allDaySlot: false,
+                    selectable: true,
+                    headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
+                    events: GOOGLE_SCRIPT_URL,
+                    dateClick: function(info) {
+                        selectedBlockDate = info.date;
+                        const display = document.getElementById('display-fecha');
+                        display.innerText = selectedBlockDate.toLocaleString('es-MX', { 
+                            weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+                        });
+                        document.getElementById('selected-info').style.display = 'block';
+                        
+                        const btn = document.getElementById('btn-confirmar-bloqueo');
+                        btn.style.opacity = "1";
+                        btn.style.pointerEvents = "auto";
+                    }
+                });
+                blockCalendar.render();
+            } else {
+                blockCalendar.refetchEvents();
+                setTimeout(() => { blockCalendar.render(); }, 200);
+            }
+        }
 
+        async function confirmarBloqueo() {
+            if(!selectedBlockDate) return;
+            
+            const isoString = selectedBlockDate.toISOString();
             document.getElementById('bloqueo-modal').style.display='none';
 
             try {
@@ -255,8 +303,9 @@
                     })
                 });
 
-                alert("Horario bloqueado con éxito. Ya nadie podrá agendar en este bloque.");
+                alert("Horario bloqueado con éxito.");
                 cargarCitas();
+                if(blockCalendar) blockCalendar.refetchEvents();
             } catch(e) {
                 alert("Ocurrió un error al intentar bloquear: " + e.message);
             }
