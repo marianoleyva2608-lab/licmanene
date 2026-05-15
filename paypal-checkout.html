@@ -162,11 +162,29 @@
         let selectedDateTime = null;
 
         // Inicializar Calendario Propio
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             const calendarEl = document.getElementById('calendar');
             const ahora = new Date();
             const scrollH = Math.min(19, Math.max(8, ahora.getHours() - 1));
             const scrollTime = `${String(scrollH).padStart(2, '0')}:00:00`;
+
+            // Cargar citas ocupadas desde Supabase
+            let ocupados = [];
+            try {
+                const { data } = await _supabase.from('citas').select('cliente, fecha_cita');
+                if (data) {
+                    ocupados = data.map(c => ({
+                        title: c.cliente === 'BLOQUEADO' ? '🚫 No disponible' : '⚖️ Ocupado',
+                        start: c.fecha_cita,
+                        end: new Date(new Date(c.fecha_cita).getTime() + 50 * 60 * 1000).toISOString(),
+                        backgroundColor: c.cliente === 'BLOQUEADO' ? '#4b4b4b' : '#d4af37',
+                        borderColor: 'transparent',
+                        textColor: '#000',
+                        display: 'block'
+                    }));
+                }
+            } catch (e) { console.error("Error cargando ocupados:", e); }
+
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
                 initialDate: new Date(),
@@ -181,7 +199,7 @@
                 allDaySlot: false,
                 selectable: true,
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
-                events: GOOGLE_SCRIPT_URL, // Carga automática de ocupados
+                events: ocupados,
                 dateClick: function(info) {
                     // Validar si la hora está en el futuro
                     if (info.date < new Date()) {
