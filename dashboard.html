@@ -248,9 +248,15 @@
             
             if (!blockCalendar) {
                 const calendarEl = document.getElementById('block-calendar');
+                const ahoraB = new Date();
+                const scrollHB = Math.min(19, Math.max(8, ahoraB.getHours() - 1));
+                const scrollTimeB = `${String(scrollHB).padStart(2, '0')}:00:00`;
                 blockCalendar = new FullCalendar.Calendar(calendarEl, {
                     initialView: 'timeGridWeek',
+                    initialDate: new Date(),
                     locale: 'es',
+                    nowIndicator: true,
+                    scrollTime: scrollTimeB,
                     slotMinTime: '08:00:00',
                     slotMaxTime: '20:00:00',
                     slotDuration: '00:50:00',

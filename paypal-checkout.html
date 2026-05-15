@@ -164,13 +164,19 @@
         // Inicializar Calendario Propio
         document.addEventListener('DOMContentLoaded', function() {
             const calendarEl = document.getElementById('calendar');
+            const ahora = new Date();
+            const scrollH = Math.min(19, Math.max(8, ahora.getHours() - 1));
+            const scrollTime = `${String(scrollH).padStart(2, '0')}:00:00`;
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
+                initialDate: new Date(),
                 locale: 'es',
+                nowIndicator: true,
+                scrollTime: scrollTime,
                 slotMinTime: '08:00:00',
                 slotMaxTime: '20:00:00',
                 slotDuration: '00:50:00',
-                slotLabelInterval: '00:50:00', // Etiquetas cada 50 minutos
+                slotLabelInterval: '00:50:00',
                 snapDuration: '00:50:00',
                 allDaySlot: false,
                 selectable: true,
