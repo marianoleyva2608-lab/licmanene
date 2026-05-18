@@ -43,8 +43,16 @@ function doPost(e) {
         }
       };
       const createdEvent = Calendar.Events.insert(event, 'primary', { conferenceDataVersion: 1 });
-      meetLink = createdEvent.hangoutLink || '';
       eventId = createdEvent.id || '';
+
+      // Buscar el link de Meet en hangoutLink o en conferenceData.entryPoints
+      meetLink = createdEvent.hangoutLink || '';
+      if (!meetLink && createdEvent.conferenceData && createdEvent.conferenceData.entryPoints) {
+        const videoEntry = createdEvent.conferenceData.entryPoints.find(function(ep) {
+          return ep.entryPointType === 'video';
+        });
+        if (videoEntry) meetLink = videoEntry.uri || '';
+      }
     } catch (meetErr) {
       // Fallback: crear evento normal sin Meet
       const cal = CalendarApp.getDefaultCalendar();
