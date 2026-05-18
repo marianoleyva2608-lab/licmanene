@@ -231,6 +231,18 @@
                     alert("Por favor, selecciona primero un horario en el calendario.");
                     return;
                 }
+                const nombre = document.getElementById('cust-name').value.trim();
+                const contacto = document.getElementById('cust-phone').value.trim();
+                if (!nombre) {
+                    alert("Por favor ingresa tu nombre completo.");
+                    document.getElementById('cust-name').focus();
+                    return;
+                }
+                if (!contacto) {
+                    alert("Por favor ingresa tu número de WhatsApp.");
+                    document.getElementById('cust-phone').focus();
+                    return;
+                }
                 return actions.order.create({
                     purchase_units: [{
                         description: "Asesoría Legal (Agendada: " + selectedDateTime.toLocaleString() + ")",
@@ -276,8 +288,10 @@
         // FUNCIÓN DE PRUEBA TÉCNICA
         async function simularPagoExitoso() {
             if (!selectedDateTime) { alert("Elige un horario primero"); return; }
-            const nombre = document.getElementById('cust-name').value || "PRUEBA AUTOMATIZADA";
-            const contacto = document.getElementById('cust-phone').value || "0000000000";
+            const nombre = document.getElementById('cust-name').value.trim();
+            const contacto = document.getElementById('cust-phone').value.trim();
+            if (!nombre) { alert("Por favor ingresa tu nombre completo."); document.getElementById('cust-name').focus(); return; }
+            if (!contacto) { alert("Por favor ingresa tu número de WhatsApp."); document.getElementById('cust-phone').focus(); return; }
             
             console.log("Iniciando simulación...");
             try {
