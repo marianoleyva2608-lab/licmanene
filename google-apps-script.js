@@ -1,9 +1,8 @@
 // ================================================
 // GOOGLE APPS SCRIPT - Lic Manene
-// El correo se envía siempre. Google Meet se agrega
-// si tienes habilitado el servicio "Google Calendar API"
-// en Servicios (+ Agregar servicio). Si no, igual funciona.
 // ================================================
+
+var CORREO_MANENE = Session.getActiveUser().getEmail();
 
 function doPost(e) {
   const output = ContentService.createTextOutput();
@@ -14,27 +13,31 @@ function doPost(e) {
     const inicio = new Date(data.fecha);
     const fin = new Date(inicio.getTime() + 50 * 60 * 1000);
 
-    // Bloqueo manual sin datos de cliente
+    // Bloqueo manual
     if (data.cliente === 'BLOQUEO MANUAL') {
       const cal = CalendarApp.getDefaultCalendar();
-      const ev = cal.createEvent('🚫 BLOQUEADO', inicio, fin, {
+      const ev = cal.createEvent('BLOQUEADO', inicio, fin, {
         description: 'Horario bloqueado manualmente.'
       });
       output.setContent(JSON.stringify({ success: true, eventId: ev.getId() }));
       return output;
     }
 
-    const titulo = `⚖️ Asesoría: ${data.cliente}`;
+    const titulo = 'Asesoria: ' + data.cliente;
     let meetLink = '';
     let eventId = '';
 
-    // Intentar crear con Google Meet (requiere servicio Calendar API avanzada)
+    // Crear evento con Google Meet
     try {
+      const attendees = [];
+      if (data.correo) attendees.push({ email: data.correo });
+
       const event = {
         summary: titulo,
-        description: `Cliente: ${data.cliente}\nContacto: ${data.contacto}\nPago ID: ${data.pagoId}`,
+        description: 'Cliente: ' + data.cliente + '\nContacto: ' + data.contacto + '\nPago ID: ' + data.pagoId,
         start: { dateTime: inicio.toISOString(), timeZone: 'America/Mexico_City' },
         end:   { dateTime: fin.toISOString(),    timeZone: 'America/Mexico_City' },
+        attendees: attendees,
         conferenceData: {
           createRequest: {
             requestId: 'meet-' + Date.now(),
@@ -42,10 +45,10 @@ function doPost(e) {
           }
         }
       };
+
       const createdEvent = Calendar.Events.insert(event, 'primary', { conferenceDataVersion: 1 });
       eventId = createdEvent.id || '';
 
-      // Buscar el link de Meet en hangoutLink o en conferenceData.entryPoints
       meetLink = createdEvent.hangoutLink || '';
       if (!meetLink && createdEvent.conferenceData && createdEvent.conferenceData.entryPoints) {
         const videoEntry = createdEvent.conferenceData.entryPoints.find(function(ep) {
@@ -53,51 +56,70 @@ function doPost(e) {
         });
         if (videoEntry) meetLink = videoEntry.uri || '';
       }
+
     } catch (meetErr) {
-      // Fallback: crear evento normal sin Meet
+      Logger.log('Error Meet: ' + meetErr.toString());
       const cal = CalendarApp.getDefaultCalendar();
       const ev = cal.createEvent(titulo, inicio, fin, {
-        description: `Cliente: ${data.cliente}\nContacto: ${data.contacto}\nPago ID: ${data.pagoId}`
+        description: 'Cliente: ' + data.cliente + '\nContacto: ' + data.contacto
       });
       eventId = ev.getId();
     }
 
-    // Enviar correo si hay dirección de email
     if (data.correo) {
       const fechaFormato = inicio.toLocaleString('es-MX', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
         hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City'
       });
 
-      const meetSection = meetLink
-        ? `<div style="margin:15px 0;padding:15px;background:#0f2a0f;border-left:4px solid #34d399;border-radius:6px;">
-            <p style="margin:0 0 8px 0;font-weight:bold;color:#34d399;">💻 Link de Google Meet:</p>
-            <a href="${meetLink}" style="color:#d4af37;font-size:1.05rem;word-break:break-all;">${meetLink}</a>
-           </div>`
-        : `<p style="color:#aaa;">El link de videollamada será enviado por WhatsApp antes de la cita.</p>`;
+      const meetSeccionHTML = meetLink
+        ? '<div style="margin:15px 0;padding:15px;background:#0f2a0f;border-left:4px solid #34d399;border-radius:6px;">' +
+          '<p style="margin:0 0 8px 0;font-weight:bold;color:#34d399;">Link de Google Meet:</p>' +
+          '<a href="' + meetLink + '" style="color:#d4af37;font-size:1.05rem;word-break:break-all;">' + meetLink + '</a>' +
+          '</div>'
+        : '<p style="color:#aaa;">El link de videollamada sera enviado por WhatsApp antes de la cita.</p>';
 
+      const htmlCorreo =
+        '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0c0b0a;color:#f8f8f8;padding:30px;border-radius:12px;">' +
+        '<h2 style="color:#d4af37;margin-top:0;">Tu Asesoria esta Confirmada</h2>' +
+        '<p>Hola <strong>' + data.cliente + '</strong>,</p>' +
+        '<p>Tu asesoria legal ha sido agendada exitosamente.</p>' +
+        '<div style="background:#1a1a1a;border:1px solid #d4af37;border-radius:8px;padding:20px;margin:20px 0;">' +
+        '<p style="margin:0 0 10px 0;"><strong>Fecha:</strong> ' + fechaFormato + '</p>' +
+        '<p style="margin:0 0 10px 0;"><strong>Duracion:</strong> 50 minutos</p>' +
+        meetSeccionHTML +
+        '</div>' +
+        '<p>Unete a la videollamada en el horario agendado haciendo clic en el enlace de arriba.</p>' +
+        '<p style="color:#aaa;font-size:0.85rem;">Si tienes alguna pregunta, contactanos por WhatsApp.</p>' +
+        '<hr style="border:none;border-top:1px solid #333;margin:20px 0;">' +
+        '<p style="color:#d4af37;font-weight:bold;margin:0;">Lic. Manene Diaz</p>' +
+        '<p style="color:#888;font-size:0.8rem;margin:4px 0 0 0;">Asesoria Legal Profesional</p>' +
+        '</div>';
+
+      // Correo al cliente
       GmailApp.sendEmail(
         data.correo,
-        '✅ Confirmación de Asesoría - Lic. Manene',
-        `Tu asesoría del ${fechaFormato} ha sido confirmada. Duración: 50 minutos.${meetLink ? ' Link Meet: ' + meetLink : ''}`,
+        'Confirmacion de Asesoria - Lic. Manene',
+        'Tu asesoria del ' + fechaFormato + ' ha sido confirmada. Duracion: 50 minutos.' + (meetLink ? ' Meet: ' + meetLink : ''),
+        { htmlBody: htmlCorreo }
+      );
+
+      // Notificacion a Manene
+      GmailApp.sendEmail(
+        CORREO_MANENE,
+        'Nueva Cita Agendada: ' + data.cliente,
+        'Nueva cita agendada.\nCliente: ' + data.cliente + '\nContacto: ' + data.contacto + '\nFecha: ' + fechaFormato + (meetLink ? '\nMeet: ' + meetLink : ''),
         {
-          htmlBody: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0c0b0a;color:#f8f8f8;padding:30px;border-radius:12px;">
-              <h2 style="color:#d4af37;margin-top:0;">⚖️ Tu Asesoría está Confirmada</h2>
-              <p>Hola <strong>${data.cliente}</strong>,</p>
-              <p>Tu asesoría legal ha sido agendada exitosamente.</p>
-              <div style="background:#1a1a1a;border:1px solid #d4af37;border-radius:8px;padding:20px;margin:20px 0;">
-                <p style="margin:0 0 10px 0;"><strong>📅 Fecha:</strong> ${fechaFormato}</p>
-                <p style="margin:0 0 10px 0;"><strong>⏱️ Duración:</strong> 50 minutos</p>
-                ${meetSection}
-              </div>
-              <p>Únete a la videollamada en el horario agendado haciendo clic en el enlace de arriba.</p>
-              <p style="color:#aaa;font-size:0.85rem;">Si tienes alguna pregunta, contáctanos por WhatsApp.</p>
-              <hr style="border:none;border-top:1px solid #333;margin:20px 0;">
-              <p style="color:#d4af37;font-weight:bold;margin:0;">Lic. Manene Díaz</p>
-              <p style="color:#888;font-size:0.8rem;margin:4px 0 0 0;">Asesoría Legal Profesional</p>
-            </div>
-          `
+          htmlBody:
+            '<div style="font-family:Arial,sans-serif;max-width:600px;background:#fff;padding:20px;border-radius:8px;">' +
+            '<h2 style="color:#d4af37;">Nueva Cita Agendada</h2>' +
+            '<p><strong>Cliente:</strong> ' + data.cliente + '</p>' +
+            '<p><strong>Contacto:</strong> ' + data.contacto + '</p>' +
+            '<p><strong>Correo:</strong> ' + data.correo + '</p>' +
+            '<p><strong>Fecha:</strong> ' + fechaFormato + '</p>' +
+            '<p><strong>Duracion:</strong> 50 minutos</p>' +
+            (meetLink ? '<p><strong>Google Meet:</strong> <a href="' + meetLink + '">' + meetLink + '</a></p>' : '') +
+            '</div>'
         }
       );
     }
@@ -137,7 +159,6 @@ function doGet(e) {
   return output;
 }
 
-// Función de prueba — ejecútala manualmente desde Apps Script para verificar el correo
 function testEnviarCorreo() {
   const payload = {
     postData: {
