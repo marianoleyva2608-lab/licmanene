@@ -2,7 +2,7 @@
 // GOOGLE APPS SCRIPT - Lic Manene
 // ================================================
 
-var CORREO_MANENE = Session.getActiveUser().getEmail();
+var CORREO_MANENE = 'asesoriaslicmanene@gmail.com';
 
 function doPost(e) {
   const output = ContentService.createTextOutput();
