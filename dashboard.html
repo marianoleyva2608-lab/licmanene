@@ -182,17 +182,31 @@
     <!-- Modal para bloquear horarios -->
     <div id="bloqueo-modal" class="modal">
         <div class="modal-content">
-            <h2 style="color: var(--accent); margin-top: 0;"><i class="fas fa-lock"></i> Bloquear Espacio</h2>
+            <h2 style="color: var(--accent); margin-top: 0;"><i class="fas fa-lock"></i> Agendar / Bloquear Espacio</h2>
             <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 20px;">
-                Selecciona un espacio en blanco en el calendario para crear un bloqueo. Esto evitará que los clientes agenden en ese horario.
+                Selecciona un horario en el calendario e ingresa los datos del cliente.
             </p>
             <div id="block-calendar"></div>
             <div id="selected-info" style="margin-top: 15px; color: var(--accent); font-weight: 600; display: none;">
-                <i class="fas fa-clock"></i> Bloqueo seleccionado: <span id="display-fecha"></span>
+                <i class="fas fa-clock"></i> Horario seleccionado: <span id="display-fecha"></span>
+            </div>
+            <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 12px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Nombre del cliente</label>
+                    <input type="text" id="bloqueo-nombre" placeholder="Ej. Juan Pérez (o dejar vacío para bloquear)">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Teléfono / WhatsApp</label>
+                    <input type="text" id="bloqueo-telefono" placeholder="Ej. 5512345678">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Correo electrónico</label>
+                    <input type="email" id="bloqueo-correo" placeholder="Ej. cliente@correo.com">
+                </div>
             </div>
             <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                 <button class="btn" style="background: #333; color: white; border-color: #555; box-shadow: none;" onclick="document.getElementById('bloqueo-modal').style.display='none'">Cancelar</button>
-                <button id="btn-confirmar-bloqueo" class="btn" style="opacity: 0.5; pointer-events: none;" onclick="confirmarBloqueo()">Confirmar Bloqueo</button>
+                <button id="btn-confirmar-bloqueo" class="btn" style="opacity: 0.5; pointer-events: none;" onclick="confirmarBloqueo()">Confirmar</button>
             </div>
         </div>
     </div>
@@ -354,6 +368,13 @@
 
         function abrirModalBloqueo() {
             document.getElementById('bloqueo-modal').style.display = 'flex';
+            document.getElementById('bloqueo-nombre').value = '';
+            document.getElementById('bloqueo-telefono').value = '';
+            document.getElementById('bloqueo-correo').value = '';
+            document.getElementById('selected-info').style.display = 'none';
+            document.getElementById('btn-confirmar-bloqueo').style.opacity = '0.5';
+            document.getElementById('btn-confirmar-bloqueo').style.pointerEvents = 'none';
+            selectedBlockDate = null;
             
             if (!blockCalendar) {
                 const calendarEl = document.getElementById('block-calendar');
@@ -395,28 +416,41 @@
 
         async function confirmarBloqueo() {
             if(!selectedBlockDate) return;
-            
+
+            const nombre   = document.getElementById('bloqueo-nombre').value.trim();
+            const telefono = document.getElementById('bloqueo-telefono').value.trim();
+            const correo   = document.getElementById('bloqueo-correo').value.trim();
+
+            const esBloqueo = !nombre;
+            const cliente   = esBloqueo ? 'BLOQUEADO' : nombre;
+            const contacto  = [telefono, correo].filter(Boolean).join(' | ') || '-';
             const isoString = selectedBlockDate.toISOString();
+
             document.getElementById('bloqueo-modal').style.display='none';
 
             try {
-                // 1. Guardar en Supabase como "BLOQUEADO"
+                // 1. Guardar en Supabase
                 await _supabase.from('citas').insert([{
-                    cliente: 'BLOQUEADO',
+                    cliente: cliente,
                     fecha_cita: isoString,
-                    contacto: '-',
-                    paypal_order_id: 'BLOQUEO_MANUAL_' + Date.now(),
+                    contacto: contacto,
+                    paypal_order_id: (esBloqueo ? 'BLOQUEO_MANUAL_' : 'ADMIN_') + Date.now(),
                     monto: 0
                 }]);
 
                 // 2. Sincronizar hacia Google Calendar
+                const titulo = esBloqueo ? '🚫 BLOQUEADO' : `⚖️ Asesoría: ${cliente}`;
+                const descripcion = esBloqueo
+                    ? 'Horario bloqueado manualmente.'
+                    : `Cliente: ${cliente}\nTeléfono: ${telefono}\nCorreo: ${correo}`;
+
                 if (gapi.client && gapi.client.getToken()) {
-                    await crearEventoCalendar('🚫 BLOQUEADO', isoString, 'Horario bloqueado manualmente desde el panel.');
+                    await crearEventoCalendar(titulo, isoString, descripcion);
                 } else {
                     await fetch(GOOGLE_SCRIPT_URL, {
                         method: 'POST',
                         mode: 'no-cors',
-                        body: JSON.stringify({ cliente: 'BLOQUEO MANUAL', contacto: '-', fecha: isoString, pagoId: 'BLOQUEO_MANUAL' })
+                        body: JSON.stringify({ cliente, contacto, fecha: isoString, pagoId: esBloqueo ? 'BLOQUEO_MANUAL' : 'ADMIN' })
                     });
                 }
 
