@@ -257,13 +257,14 @@
                     
                     try {
                         // 1. Guardar en Supabase
-                        await _supabase.from('citas').insert([{
+                        const { error: sbError } = await _supabase.from('citas').insert([{
                             cliente: nombre,
                             fecha_cita: selectedDateTime.toISOString(),
                             contacto: contacto,
                             paypal_order_id: data.orderID,
                             monto: 900
                         }]);
+                        if (sbError) throw new Error("Supabase: " + sbError.message);
 
                         // 2. Enviar a Google Calendar
                         await fetch(GOOGLE_SCRIPT_URL, {
@@ -278,6 +279,7 @@
                         });
                     } catch (e) {
                         console.error("Error en sincronización:", e);
+                        alert("⚠️ Pago recibido pero hubo un error al guardar la cita:\n" + e.message);
                     }
 
                     document.getElementById('success-overlay').style.display = 'flex';
@@ -296,13 +298,14 @@
             console.log("Iniciando simulación...");
             try {
                 // 1. Supabase
-                await _supabase.from('citas').insert([{
+                const { error: sbError } = await _supabase.from('citas').insert([{
                     cliente: nombre,
                     fecha_cita: selectedDateTime.toISOString(),
                     contacto: contacto,
                     paypal_order_id: 'MOCK_TEST_' + Date.now(),
                     monto: 900
                 }]);
+                if (sbError) throw new Error("Supabase: " + sbError.message);
 
                 // 2. Google
                 await fetch(GOOGLE_SCRIPT_URL, {
@@ -312,11 +315,11 @@
                         cliente: nombre, contacto: contacto, fecha: selectedDateTime.toISOString(), pagoId: 'MOCK_TEST'
                     })
                 });
-                
+
                 document.getElementById('success-overlay').style.display = 'flex';
-                alert("✅ Sincronización Exitosa. Revisa tu Google Calendar.");
+                alert("✅ Cita guardada exitosamente.");
             } catch (e) {
-                alert("Error: " + e.message);
+                alert("❌ Error al guardar la cita:\n" + e.message);
             }
         }
     </script>
