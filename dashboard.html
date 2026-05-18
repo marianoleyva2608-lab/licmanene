@@ -12,9 +12,13 @@
     
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
+
     <!-- FullCalendar SDK -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+    <!-- Google Calendar API -->
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     
     <style>
         :root {
@@ -148,9 +152,13 @@
 <body>
     <div class="header">
         <h1><i class="fas fa-gavel"></i> Panel de Control</h1>
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="btn-conectar-calendar" class="btn" style="display:none; background: #fff; color: #333; border-color: #ddd;" onclick="conectarCalendar()">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="height:16px; vertical-align:middle; margin-right:6px;">Conectar Google Calendar
+            </button>
+            <span id="calendar-status" style="display:none; color:#34d399; font-size:0.8rem; align-self:center;">✅ Google Calendar conectado</span>
             <button class="btn" onclick="abrirModalBloqueo()">🚫 Bloquear Horario</button>
-            <button class="btn" style="background: transparent; color: var(--accent); border-color: var(--accent); box-shadow: none;" onclick="window.location.href='index.html'">Cerrar Sesión</button>
+            <button class="btn" style="background: transparent; color: var(--accent); border-color: var(--accent); box-shadow: none;" onclick="cerrarSesion()">Cerrar Sesión</button>
         </div>
     </div>
 
@@ -193,6 +201,107 @@
         const SUPABASE_URL = "https://agent-supabase.c4o2yg.easypanel.host";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRvUWFOYa-GYWDSKMMwKgVt3-Id9984MqhuT1zPo1oubmOY4U3xYYjnDQ_5WEPDXNJ/exec";
+
+        // Google Calendar API
+        const GOOGLE_CLIENT_ID = "632910100889-1qqj82379872220tt8sqs9e9ioj49snc.apps.googleusercontent.com";
+        const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar";
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        function gapiLoaded() {
+            gapi.load('client', async () => {
+                await gapi.client.init({
+                    discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
+                });
+                gapiInited = true;
+                habilitarBotonCalendar();
+            });
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: GOOGLE_SCOPES,
+                callback: async (resp) => {
+                    if (resp.error) { console.error(resp); return; }
+                    document.getElementById('btn-conectar-calendar').style.display = 'none';
+                    document.getElementById('calendar-status').style.display = 'inline';
+                    if (blockCalendar) {
+                        blockCalendar.refetchEvents();
+                    }
+                },
+            });
+            gisInited = true;
+            habilitarBotonCalendar();
+        }
+
+        function habilitarBotonCalendar() {
+            if (gapiInited && gisInited) {
+                document.getElementById('btn-conectar-calendar').style.display = 'inline-flex';
+                document.getElementById('btn-conectar-calendar').style.alignItems = 'center';
+            }
+        }
+
+        function conectarCalendar() {
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            } else {
+                tokenClient.requestAccessToken({ prompt: '' });
+            }
+        }
+
+        function cerrarSesion() {
+            const token = gapi.client.getToken();
+            if (token) {
+                google.accounts.oauth2.revoke(token.access_token);
+                gapi.client.setToken('');
+            }
+            window.location.href = 'index.html';
+        }
+
+        async function obtenerEventosCalendar(fetchInfo, successCallback, failureCallback) {
+            if (!gapi.client.getToken()) {
+                successCallback([]);
+                return;
+            }
+            try {
+                const resp = await gapi.client.calendar.events.list({
+                    calendarId: 'primary',
+                    timeMin: fetchInfo.startStr,
+                    timeMax: fetchInfo.endStr,
+                    singleEvents: true,
+                    orderBy: 'startTime',
+                });
+                const eventos = (resp.result.items || []).map(ev => ({
+                    id: ev.id,
+                    title: ev.summary || 'Sin título',
+                    start: ev.start.dateTime || ev.start.date,
+                    end: ev.end.dateTime || ev.end.date,
+                    backgroundColor: (ev.summary || '').includes('BLOQUEADO') ? '#4b4b4b' : '#d4af37',
+                    borderColor: 'transparent',
+                    textColor: '#000',
+                }));
+                successCallback(eventos);
+            } catch (e) {
+                failureCallback(e);
+            }
+        }
+
+        async function crearEventoCalendar(titulo, inicio, descripcion) {
+            if (!gapi.client.getToken()) return null;
+            const fin = new Date(new Date(inicio).getTime() + 50 * 60 * 1000).toISOString();
+            const resp = await gapi.client.calendar.events.insert({
+                calendarId: 'primary',
+                resource: {
+                    summary: titulo,
+                    description: descripcion,
+                    start: { dateTime: inicio, timeZone: 'America/Mexico_City' },
+                    end: { dateTime: fin, timeZone: 'America/Mexico_City' },
+                },
+            });
+            return resp.result.id;
+        }
         
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         let blockCalendar = null;
@@ -263,7 +372,7 @@
                     allDaySlot: false,
                     selectable: true,
                     headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
-                    events: GOOGLE_SCRIPT_URL,
+                    events: gapi.client && gapi.client.getToken() ? obtenerEventosCalendar : GOOGLE_SCRIPT_URL,
                     dateClick: function(info) {
                         selectedBlockDate = info.date;
                         const display = document.getElementById('display-fecha');
@@ -301,16 +410,15 @@
                 }]);
 
                 // 2. Sincronizar hacia Google Calendar
-                await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify({
-                        cliente: 'BLOQUEO MANUAL',
-                        contacto: '-',
-                        fecha: isoString,
-                        pagoId: 'BLOQUEO_MANUAL'
-                    })
-                });
+                if (gapi.client && gapi.client.getToken()) {
+                    await crearEventoCalendar('🚫 BLOQUEADO', isoString, 'Horario bloqueado manualmente desde el panel.');
+                } else {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: JSON.stringify({ cliente: 'BLOQUEO MANUAL', contacto: '-', fecha: isoString, pagoId: 'BLOQUEO_MANUAL' })
+                    });
+                }
 
                 alert("Horario bloqueado con éxito.");
                 cargarCitas();
