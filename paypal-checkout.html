@@ -133,6 +133,10 @@
             <label>WhatsApp / Teléfono</label>
             <input type="text" id="cust-phone" placeholder="Ej. 5512345678">
         </div>
+        <div class="form-group">
+            <label>Correo Electrónico</label>
+            <input type="email" id="cust-email" placeholder="Ej. juan@correo.com">
+        </div>
 
         <div id="paypal-button-container"></div>
 
@@ -252,9 +256,10 @@
             },
             onApprove: function(data, actions) {
                 return actions.order.capture().then(async function(details) {
-                    const nombre = document.getElementById('cust-name').value || details.payer.name.given_name;
-                    const contacto = document.getElementById('cust-phone').value || details.payer.email_address;
-                    
+                    const nombre   = document.getElementById('cust-name').value.trim() || details.payer.name.given_name;
+                    const contacto = document.getElementById('cust-phone').value.trim() || details.payer.email_address;
+                    const correo   = document.getElementById('cust-email').value.trim() || details.payer.email_address;
+
                     try {
                         // 1. Guardar en Supabase
                         const { error: sbError } = await _supabase.from('citas').insert([{
@@ -266,13 +271,14 @@
                         }]);
                         if (sbError) throw new Error("Supabase: " + sbError.message);
 
-                        // 2. Enviar a Google Calendar
+                        // 2. Enviar a Google Calendar + correo con Meet
                         await fetch(GOOGLE_SCRIPT_URL, {
                             method: 'POST',
                             mode: 'no-cors',
                             body: JSON.stringify({
                                 cliente: nombre,
                                 contacto: contacto,
+                                correo: correo,
                                 fecha: selectedDateTime.toISOString(),
                                 pagoId: data.orderID
                             })
@@ -290,11 +296,12 @@
         // FUNCIÓN DE PRUEBA TÉCNICA
         async function simularPagoExitoso() {
             if (!selectedDateTime) { alert("Elige un horario primero"); return; }
-            const nombre = document.getElementById('cust-name').value.trim();
+            const nombre   = document.getElementById('cust-name').value.trim();
             const contacto = document.getElementById('cust-phone').value.trim();
-            if (!nombre) { alert("Por favor ingresa tu nombre completo."); document.getElementById('cust-name').focus(); return; }
+            const correo   = document.getElementById('cust-email').value.trim();
+            if (!nombre)   { alert("Por favor ingresa tu nombre completo."); document.getElementById('cust-name').focus(); return; }
             if (!contacto) { alert("Por favor ingresa tu número de WhatsApp."); document.getElementById('cust-phone').focus(); return; }
-            
+
             console.log("Iniciando simulación...");
             try {
                 // 1. Supabase
@@ -312,7 +319,8 @@
                     method: 'POST',
                     mode: 'no-cors',
                     body: JSON.stringify({
-                        cliente: nombre, contacto: contacto, fecha: selectedDateTime.toISOString(), pagoId: 'MOCK_TEST'
+                        cliente: nombre, contacto: contacto, correo: correo,
+                        fecha: selectedDateTime.toISOString(), pagoId: 'MOCK_TEST'
                     })
                 });
 

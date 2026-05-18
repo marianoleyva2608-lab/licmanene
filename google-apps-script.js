@@ -1,9 +1,8 @@
 // ================================================
 // GOOGLE APPS SCRIPT - Lic Manene
-// Pega este código en script.google.com
+// IMPORTANTE: Antes de desplegar, habilita el servicio
+// "Google Calendar API" en Servicios (+ Agregar servicio)
 // ================================================
-
-const CLIENT_ID = "632910100889-1qqj82379872220tt8sqs9e9ioj49snc.apps.googleusercontent.com";
 
 function doPost(e) {
   const output = ContentService.createTextOutput();
@@ -11,26 +10,71 @@ function doPost(e) {
 
   try {
     const data = JSON.parse(e.postData.contents);
-    const calendar = CalendarApp.getDefaultCalendar();
     const inicio = new Date(data.fecha);
-    const fin = new Date(inicio.getTime() + 50 * 60 * 1000); // 50 minutos
+    const fin = new Date(inicio.getTime() + 50 * 60 * 1000);
 
-    let titulo, descripcion;
-
+    // Bloqueo sin datos de cliente
     if (data.cliente === 'BLOQUEO MANUAL') {
-      titulo = '🚫 BLOQUEADO';
-      descripcion = 'Horario bloqueado manualmente desde el panel de administración.';
-    } else {
-      titulo = `⚖️ Asesoría: ${data.cliente}`;
-      descripcion = `Cliente: ${data.cliente}\nContacto: ${data.contacto}\nPago ID: ${data.pagoId}`;
+      const calendar = CalendarApp.getDefaultCalendar();
+      const evento = calendar.createEvent('🚫 BLOQUEADO', inicio, fin, {
+        description: 'Horario bloqueado manualmente.'
+      });
+      output.setContent(JSON.stringify({ success: true, eventId: evento.getId() }));
+      return output;
     }
 
-    const evento = calendar.createEvent(titulo, inicio, fin, {
-      description: descripcion,
-      sendInvites: false
-    });
+    // Crear evento con Google Meet usando Calendar API avanzada
+    const titulo = `⚖️ Asesoría: ${data.cliente}`;
+    const event = {
+      summary: titulo,
+      description: `Cliente: ${data.cliente}\nContacto: ${data.contacto}\nPago ID: ${data.pagoId}`,
+      start: { dateTime: inicio.toISOString(), timeZone: 'America/Mexico_City' },
+      end:   { dateTime: fin.toISOString(),    timeZone: 'America/Mexico_City' },
+      conferenceData: {
+        createRequest: {
+          requestId: 'meet-' + Date.now(),
+          conferenceSolutionKey: { type: 'hangoutsMeet' }
+        }
+      }
+    };
 
-    output.setContent(JSON.stringify({ success: true, eventId: evento.getId() }));
+    const createdEvent = Calendar.Events.insert(event, 'primary', { conferenceDataVersion: 1 });
+    const meetLink = createdEvent.hangoutLink || '';
+
+    // Enviar correo si hay dirección de email
+    if (data.correo && meetLink) {
+      const fechaFormato = inicio.toLocaleString('es-MX', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City'
+      });
+
+      GmailApp.sendEmail(
+        data.correo,
+        '✅ Confirmación de Asesoría - Lic. Manene',
+        '',
+        {
+          htmlBody: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0c0b0a;color:#f8f8f8;padding:30px;border-radius:12px;">
+              <h2 style="color:#d4af37;">⚖️ Tu Asesoría está Confirmada</h2>
+              <p>Hola <strong>${data.cliente}</strong>,</p>
+              <p>Tu asesoría legal ha sido agendada exitosamente.</p>
+              <div style="background:#1a1a1a;border:1px solid #d4af37;border-radius:8px;padding:20px;margin:20px 0;">
+                <p><strong>📅 Fecha:</strong> ${fechaFormato}</p>
+                <p><strong>⏱️ Duración:</strong> 50 minutos</p>
+                <p><strong>💻 Google Meet:</strong><br>
+                  <a href="${meetLink}" style="color:#d4af37;font-size:1.1rem;">${meetLink}</a>
+                </p>
+              </div>
+              <p>Únete a la videollamada en el horario agendado haciendo clic en el enlace.</p>
+              <p style="color:#aaa;font-size:0.85rem;">Si tienes alguna pregunta, contáctanos por WhatsApp.</p>
+              <p style="color:#d4af37;font-weight:bold;">Lic. Manene Díaz</p>
+            </div>
+          `
+        }
+      );
+    }
+
+    output.setContent(JSON.stringify({ success: true, eventId: createdEvent.id, meetLink: meetLink }));
   } catch (err) {
     output.setContent(JSON.stringify({ success: false, error: err.toString() }));
   }
