@@ -154,7 +154,7 @@
     </div>
 
     <script>
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRvUWFOYa-GYWDSKMMwKgVt3-Id9984MqhuT1zPo1oubmOY4U3xYYjnDQ_5WEPDXNJ/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxl9EbufONt9BvKJmPovg816TjatDtKAqUqZvy6455f1wJPxFD2gn2CD20raNYAKg/exec";
         const SUPABASE_URL = "https://agent-supabase.c4o2yg.easypanel.host";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
         
@@ -231,6 +231,18 @@
                     alert("Por favor, selecciona primero un horario en el calendario.");
                     return;
                 }
+                const nombre = document.getElementById('cust-name').value.trim();
+                const contacto = document.getElementById('cust-phone').value.trim();
+                if (!nombre) {
+                    alert("Por favor ingresa tu nombre completo.");
+                    document.getElementById('cust-name').focus();
+                    return;
+                }
+                if (!contacto) {
+                    alert("Por favor ingresa tu número de WhatsApp.");
+                    document.getElementById('cust-phone').focus();
+                    return;
+                }
                 return actions.order.create({
                     purchase_units: [{
                         description: "Asesoría Legal (Agendada: " + selectedDateTime.toLocaleString() + ")",
@@ -245,13 +257,14 @@
                     
                     try {
                         // 1. Guardar en Supabase
-                        await _supabase.from('citas').insert([{
+                        const { error: sbError } = await _supabase.from('citas').insert([{
                             cliente: nombre,
                             fecha_cita: selectedDateTime.toISOString(),
                             contacto: contacto,
                             paypal_order_id: data.orderID,
                             monto: 900
                         }]);
+                        if (sbError) throw new Error("Supabase: " + sbError.message);
 
                         // 2. Enviar a Google Calendar
                         await fetch(GOOGLE_SCRIPT_URL, {
@@ -266,6 +279,7 @@
                         });
                     } catch (e) {
                         console.error("Error en sincronización:", e);
+                        alert("⚠️ Pago recibido pero hubo un error al guardar la cita:\n" + e.message);
                     }
 
                     document.getElementById('success-overlay').style.display = 'flex';
@@ -276,19 +290,22 @@
         // FUNCIÓN DE PRUEBA TÉCNICA
         async function simularPagoExitoso() {
             if (!selectedDateTime) { alert("Elige un horario primero"); return; }
-            const nombre = document.getElementById('cust-name').value || "PRUEBA AUTOMATIZADA";
-            const contacto = document.getElementById('cust-phone').value || "0000000000";
+            const nombre = document.getElementById('cust-name').value.trim();
+            const contacto = document.getElementById('cust-phone').value.trim();
+            if (!nombre) { alert("Por favor ingresa tu nombre completo."); document.getElementById('cust-name').focus(); return; }
+            if (!contacto) { alert("Por favor ingresa tu número de WhatsApp."); document.getElementById('cust-phone').focus(); return; }
             
             console.log("Iniciando simulación...");
             try {
                 // 1. Supabase
-                await _supabase.from('citas').insert([{
+                const { error: sbError } = await _supabase.from('citas').insert([{
                     cliente: nombre,
                     fecha_cita: selectedDateTime.toISOString(),
                     contacto: contacto,
                     paypal_order_id: 'MOCK_TEST_' + Date.now(),
                     monto: 900
                 }]);
+                if (sbError) throw new Error("Supabase: " + sbError.message);
 
                 // 2. Google
                 await fetch(GOOGLE_SCRIPT_URL, {
@@ -298,11 +315,11 @@
                         cliente: nombre, contacto: contacto, fecha: selectedDateTime.toISOString(), pagoId: 'MOCK_TEST'
                     })
                 });
-                
+
                 document.getElementById('success-overlay').style.display = 'flex';
-                alert("✅ Sincronización Exitosa. Revisa tu Google Calendar.");
+                alert("✅ Cita guardada exitosamente.");
             } catch (e) {
-                alert("Error: " + e.message);
+                alert("❌ Error al guardar la cita:\n" + e.message);
             }
         }
     </script>
