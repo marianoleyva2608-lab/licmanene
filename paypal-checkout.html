@@ -220,20 +220,43 @@
             const ahora = new Date();
             const scrollTime = '17:00:00';
 
-            // Cargar citas ocupadas desde Supabase
+            // Sombrear días/slots pasados con overlay de fondo (sin texto por slot)
+            const pasados = [];
+            const hace2Semanas = new Date(ahora);
+            hace2Semanas.setDate(ahora.getDate() - 14);
+            hace2Semanas.setHours(0, 0, 0, 0);
+            for (let d = new Date(hace2Semanas); d <= ahora; d.setDate(d.getDate() + 1)) {
+                if (d.getDay() === 0 || d.getDay() === 6) continue;
+                const diaInicio = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 17, 0);
+                const diaFin    = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 21, 10);
+                const corte     = diaFin < ahora ? diaFin : ahora;
+                if (diaInicio < corte) {
+                    pasados.push({
+                        start: diaInicio.toISOString(),
+                        end:   corte.toISOString(),
+                        display: 'background',
+                        backgroundColor: 'rgba(0,0,0,0.45)',
+                        classNames: ['slot-pasado']
+                    });
+                }
+            }
+
+            // Cargar citas ocupadas desde Supabase (solo futuras)
             let ocupados = [];
             try {
                 const { data } = await _supabase.from('citas').select('cliente, fecha_cita');
                 if (data) {
-                    ocupados = data.map(c => ({
-                        title: c.cliente.toUpperCase().includes('BLOQUEADO') ? 'No disponible' : 'Ocupado',
-                        start: c.fecha_cita,
-                        end: new Date(new Date(c.fecha_cita).getTime() + 50 * 60 * 1000).toISOString(),
-                        backgroundColor: c.cliente.toUpperCase().includes('BLOQUEADO') ? '#555' : '#b08020',
-                        borderColor: 'transparent',
-                        textColor: '#fff',
-                        display: 'block'
-                    }));
+                    ocupados = data
+                        .filter(c => new Date(c.fecha_cita) > ahora)
+                        .map(c => ({
+                            title: c.cliente.toUpperCase().includes('BLOQUEADO') ? 'No disponible' : 'Ocupado',
+                            start: c.fecha_cita,
+                            end: new Date(new Date(c.fecha_cita).getTime() + 50 * 60 * 1000).toISOString(),
+                            backgroundColor: c.cliente.toUpperCase().includes('BLOQUEADO') ? '#555' : '#b08020',
+                            borderColor: 'transparent',
+                            textColor: '#fff',
+                            display: 'block'
+                        }));
                 }
             } catch (e) { console.error("Error cargando ocupados:", e); }
 
@@ -245,7 +268,7 @@
                 nowIndicator: true,
                 scrollTime: scrollTime,
                 slotMinTime: '17:00:00',
-                slotMaxTime: '22:00:00',
+                slotMaxTime: '21:10:00',
                 slotDuration: '00:50:00',
                 slotLabelInterval: '00:50:00',
                 snapDuration: '00:50:00',
@@ -256,7 +279,7 @@
                 headerToolbar: isMobile
                     ? { left: 'prev,next', center: 'title', right: 'today' }
                     : { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
-                events: ocupados,
+                events: [...pasados, ...ocupados],
                 dateClick: function(info) {
                     // Validar si la hora está en el futuro
                     if (info.date < new Date()) {
