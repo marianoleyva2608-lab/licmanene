@@ -249,7 +249,7 @@
                     ocupados = data
                         .filter(c => new Date(c.fecha_cita) > ahora)
                         .map(c => ({
-                            title: c.cliente.toUpperCase().includes('BLOQUEADO') ? 'No disponible' : 'Ocupado',
+                            title: c.cliente.toUpperCase().includes('BLOQUEADO') ? 'No disponible' : 'Cita con Lic Manene',
                             start: c.fecha_cita,
                             end: new Date(new Date(c.fecha_cita).getTime() + 50 * 60 * 1000).toISOString(),
                             backgroundColor: c.cliente.toUpperCase().includes('BLOQUEADO') ? '#555' : '#b08020',
