@@ -297,10 +297,21 @@
                     const m = info.date.getMinutes();
                     const minutosDesde5pm = (h - 17) * 60 + m;
                     if (h < 17 || minutosDesde5pm > 200) {
-                        alert("Los horarios disponibles son de 5:00 PM a 9:10 PM.");
+                        alert("Los horarios disponibles son de 5:00 PM a 8:20 PM.");
                         return;
                     }
-                    
+
+                    // Validar que el slot no esté ya ocupado
+                    const slotFin = new Date(info.date.getTime() + 50 * 60 * 1000);
+                    const conflicto = calendar.getEvents().some(ev => {
+                        if (ev.display === 'background') return false;
+                        return info.date < ev.end && slotFin > ev.start;
+                    });
+                    if (conflicto) {
+                        alert("Este horario ya está ocupado. Por favor selecciona otro disponible.");
+                        return;
+                    }
+
                     // Guardar selección
                     selectedDateTime = info.date;
                     const end = new Date(selectedDateTime.getTime() + (50 * 60 * 1000));
