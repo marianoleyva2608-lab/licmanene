@@ -68,7 +68,6 @@
             padding: 15px;
             margin-bottom: 25px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            min-height: 450px;
         }
         .fc { color: white; font-size: 0.85rem; }
         .fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255,255,255,0.07); }
@@ -112,7 +111,7 @@
                 min-height: 400px;
             }
             .fc { font-size: 0.8rem; }
-            .fc-timegrid-slot { height: 5em !important; }
+            .fc-timegrid-slot { height: 3.5em !important; }
             .fc-timegrid-slot-label-cushion { font-size: 0.7rem !important; }
             .fc-button { padding: 7px 12px !important; font-size: 0.78rem !important; }
             .fc-toolbar-title { font-size: 0.95rem !important; }
@@ -274,6 +273,7 @@
                 snapDuration: '00:50:00',
                 slotLabelFormat: { hour: 'numeric', minute: '2-digit', hour12: true },
                 weekends: false,
+                contentHeight: 'auto',
                 allDaySlot: false,
                 selectable: true,
                 headerToolbar: isMobile
