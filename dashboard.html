@@ -121,12 +121,11 @@
             max-height: 90vh;
             overflow-y: auto;
         }
-        #block-calendar {
+        #block-calendar, #cita-calendar {
             background: #111;
             padding: 10px;
             border-radius: 8px;
             border: 1px solid #333;
-            min-height: 500px;
             color: white;
         }
         .fc { font-size: 0.85rem; }
@@ -342,6 +341,26 @@
         let blockCalendar = null;
         let selectedBlockDate = null;
 
+        async function eventosDesdeSupabase(fetchInfo, successCallback, failureCallback) {
+            try {
+                const ahora = new Date();
+                const { data } = await _supabase.from('citas').select('cliente, fecha_cita');
+                const ocupados = (data || [])
+                    .filter(c => new Date(c.fecha_cita) > ahora)
+                    .map(c => ({
+                        title: c.cliente.toUpperCase().includes('BLOQUEADO') ? 'No disponible' : 'Cita con Lic Manene',
+                        start: c.fecha_cita,
+                        end: new Date(new Date(c.fecha_cita).getTime() + 50 * 60 * 1000).toISOString(),
+                        backgroundColor: c.cliente.toUpperCase().includes('BLOQUEADO') ? '#555' : '#b08020',
+                        borderColor: 'transparent',
+                        textColor: '#fff',
+                    }));
+                successCallback(ocupados);
+            } catch(e) {
+                failureCallback(e);
+            }
+        }
+
         async function cargarCitas() {
             const tbody = document.getElementById('tabla-citas');
             try {
@@ -412,10 +431,15 @@
                     slotMinTime: '17:00:00',
                     slotMaxTime: '21:10:00',
                     slotDuration: '00:50:00',
+                    slotLabelInterval: '00:50:00',
+                    snapDuration: '00:50:00',
+                    slotLabelFormat: { hour: 'numeric', minute: '2-digit', hour12: true },
+                    weekends: false,
+                    contentHeight: 'auto',
                     allDaySlot: false,
                     selectable: true,
                     headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
-                    events: gapi.client && gapi.client.getToken() ? obtenerEventosCalendar : GOOGLE_SCRIPT_URL,
+                    events: eventosDesdeSupabase,
                     dateClick: function(info) {
                         selectedBlockDate = info.date;
                         document.getElementById('display-fecha').innerText = selectedBlockDate.toLocaleString('es-MX', {
@@ -486,10 +510,15 @@
                     slotMinTime: '17:00:00',
                     slotMaxTime: '21:10:00',
                     slotDuration: '00:50:00',
+                    slotLabelInterval: '00:50:00',
+                    snapDuration: '00:50:00',
+                    slotLabelFormat: { hour: 'numeric', minute: '2-digit', hour12: true },
+                    weekends: false,
+                    contentHeight: 'auto',
                     allDaySlot: false,
                     selectable: true,
                     headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
-                    events: gapi.client && gapi.client.getToken() ? obtenerEventosCalendar : GOOGLE_SCRIPT_URL,
+                    events: eventosDesdeSupabase,
                     dateClick: function(info) {
                         selectedCitaDate = info.date;
                         document.getElementById('cita-display-fecha').innerText = selectedCitaDate.toLocaleString('es-MX', {
