@@ -157,6 +157,8 @@
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="height:16px; vertical-align:middle; margin-right:6px;">Conectar Google Calendar
             </button>
             <span id="calendar-status" style="display:none; color:#34d399; font-size:0.8rem; align-self:center;">✅ Google Calendar conectado</span>
+            <button class="btn" onclick="descargarContactos()"><i class="fas fa-download"></i> Descargar Contactos</button>
+            <button class="btn" onclick="abrirModalCita()"><i class="fas fa-calendar-plus"></i> Agendar Cita</button>
             <button class="btn" onclick="abrirModalBloqueo()">🚫 Bloquear Horario</button>
             <button class="btn" style="background: transparent; color: var(--accent); border-color: var(--accent); box-shadow: none;" onclick="cerrarSesion()">Cerrar Sesión</button>
         </div>
@@ -171,10 +173,11 @@
                     <th>Fecha y Hora de la Cita</th>
                     <th>ID de Pago</th>
                     <th>Estado</th>
+                    <th>Acción</th>
                 </tr>
             </thead>
             <tbody id="tabla-citas">
-                <tr><td colspan="5" style="text-align: center; color: #888;">Cargando citas...</td></tr>
+                <tr><td colspan="6" style="text-align: center; color: #888;">Cargando citas...</td></tr>
             </tbody>
         </table>
     </div>
@@ -182,31 +185,49 @@
     <!-- Modal para bloquear horarios -->
     <div id="bloqueo-modal" class="modal">
         <div class="modal-content">
-            <h2 style="color: var(--accent); margin-top: 0;"><i class="fas fa-lock"></i> Agendar / Bloquear Espacio</h2>
+            <h2 style="color: var(--accent); margin-top: 0;"><i class="fas fa-lock"></i> Bloquear Horario</h2>
             <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 20px;">
-                Selecciona un horario en el calendario e ingresa los datos del cliente.
+                Selecciona el horario que deseas bloquear. No estará disponible para los clientes.
             </p>
             <div id="block-calendar"></div>
             <div id="selected-info" style="margin-top: 15px; color: var(--accent); font-weight: 600; display: none;">
                 <i class="fas fa-clock"></i> Horario seleccionado: <span id="display-fecha"></span>
             </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn" style="background: #333; color: white; border-color: #555; box-shadow: none;" onclick="document.getElementById('bloqueo-modal').style.display='none'">Cancelar</button>
+                <button id="btn-confirmar-bloqueo" class="btn" style="opacity: 0.5; pointer-events: none;" onclick="confirmarBloqueo()">🚫 Bloquear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Agendar Cita -->
+    <div id="cita-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--accent); margin-top: 0;"><i class="fas fa-calendar-plus"></i> Agendar Cita</h2>
+            <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 20px;">
+                Selecciona el horario y completa los datos del cliente.
+            </p>
+            <div id="cita-calendar"></div>
+            <div id="cita-selected-info" style="margin-top: 15px; color: var(--accent); font-weight: 600; display: none;">
+                <i class="fas fa-clock"></i> Horario seleccionado: <span id="cita-display-fecha"></span>
+            </div>
             <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 12px;">
                 <div class="form-group" style="margin-bottom: 0;">
-                    <label>Nombre del cliente</label>
-                    <input type="text" id="bloqueo-nombre" placeholder="Ej. Juan Pérez (o dejar vacío para bloquear)">
+                    <label>Nombre completo *</label>
+                    <input type="text" id="cita-nombre" placeholder="Ej. Juan Pérez">
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
-                    <label>Teléfono / WhatsApp</label>
-                    <input type="text" id="bloqueo-telefono" placeholder="Ej. 5512345678">
+                    <label>Teléfono / WhatsApp *</label>
+                    <input type="text" id="cita-telefono" placeholder="Ej. 5512345678">
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
                     <label>Correo electrónico</label>
-                    <input type="email" id="bloqueo-correo" placeholder="Ej. cliente@correo.com">
+                    <input type="email" id="cita-correo" placeholder="Ej. cliente@correo.com">
                 </div>
             </div>
             <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-                <button class="btn" style="background: #333; color: white; border-color: #555; box-shadow: none;" onclick="document.getElementById('bloqueo-modal').style.display='none'">Cancelar</button>
-                <button id="btn-confirmar-bloqueo" class="btn" style="opacity: 0.5; pointer-events: none;" onclick="confirmarBloqueo()">Confirmar</button>
+                <button class="btn" style="background: #333; color: white; border-color: #555; box-shadow: none;" onclick="document.getElementById('cita-modal').style.display='none'">Cancelar</button>
+                <button id="btn-confirmar-cita" class="btn" style="opacity: 0.5; pointer-events: none;" onclick="confirmarCitaAdmin()"><i class="fas fa-check"></i> Confirmar Cita</button>
             </div>
         </div>
     </div>
@@ -332,18 +353,18 @@
                 if (error) throw error;
 
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #888;">No hay registros disponibles.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #888;">No hay registros disponibles.</td></tr>';
                     return;
                 }
 
                 tbody.innerHTML = '';
                 data.forEach(cita => {
                     const fechaObj = new Date(cita.fecha_cita);
-                    const fechaFormat = fechaObj.toLocaleDateString('es-MX', {day: '2-digit', month: 'short', year: 'numeric'}) 
+                    const fechaFormat = fechaObj.toLocaleDateString('es-MX', {day: '2-digit', month: 'short', year: 'numeric'})
                                       + ' | ' + fechaObj.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
-                    
+
                     const isBloqueo = cita.cliente.toUpperCase().includes("BLOQUEADO");
-                    
+
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td style="font-weight: 600; color: ${isBloqueo ? '#ef4444' : '#fff'};">
@@ -357,6 +378,13 @@
                                 ${isBloqueo ? 'No Disponible' : 'Cita Pagada'}
                             </span>
                         </td>
+                        <td>
+                            <button onclick="cancelarCita('${cita.id}')" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.2s;"
+                                onmouseover="this.style.background='#ef4444';this.style.color='#fff';"
+                                onmouseout="this.style.background='transparent';this.style.color='#ef4444';">
+                                <i class="fas fa-trash-alt"></i> Cancelar
+                            </button>
+                        </td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -368,27 +396,21 @@
 
         function abrirModalBloqueo() {
             document.getElementById('bloqueo-modal').style.display = 'flex';
-            document.getElementById('bloqueo-nombre').value = '';
-            document.getElementById('bloqueo-telefono').value = '';
-            document.getElementById('bloqueo-correo').value = '';
             document.getElementById('selected-info').style.display = 'none';
             document.getElementById('btn-confirmar-bloqueo').style.opacity = '0.5';
             document.getElementById('btn-confirmar-bloqueo').style.pointerEvents = 'none';
             selectedBlockDate = null;
-            
+
             if (!blockCalendar) {
                 const calendarEl = document.getElementById('block-calendar');
-                const ahoraB = new Date();
-                const scrollHB = Math.min(19, Math.max(8, ahoraB.getHours() - 1));
-                const scrollTimeB = `${String(scrollHB).padStart(2, '0')}:00:00`;
                 blockCalendar = new FullCalendar.Calendar(calendarEl, {
                     initialView: 'timeGridWeek',
                     initialDate: new Date(),
                     locale: 'es',
                     nowIndicator: true,
-                    scrollTime: scrollTimeB,
-                    slotMinTime: '08:00:00',
-                    slotMaxTime: '20:00:00',
+                    scrollTime: '17:00:00',
+                    slotMinTime: '17:00:00',
+                    slotMaxTime: '21:10:00',
                     slotDuration: '00:50:00',
                     allDaySlot: false,
                     selectable: true,
@@ -396,12 +418,10 @@
                     events: gapi.client && gapi.client.getToken() ? obtenerEventosCalendar : GOOGLE_SCRIPT_URL,
                     dateClick: function(info) {
                         selectedBlockDate = info.date;
-                        const display = document.getElementById('display-fecha');
-                        display.innerText = selectedBlockDate.toLocaleString('es-MX', { 
-                            weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+                        document.getElementById('display-fecha').innerText = selectedBlockDate.toLocaleString('es-MX', {
+                            weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                         });
                         document.getElementById('selected-info').style.display = 'block';
-                        
                         const btn = document.getElementById('btn-confirmar-bloqueo');
                         btn.style.opacity = "1";
                         btn.style.pointerEvents = "auto";
@@ -415,50 +435,151 @@
         }
 
         async function confirmarBloqueo() {
-            if(!selectedBlockDate) return;
-
-            const nombre   = document.getElementById('bloqueo-nombre').value.trim();
-            const telefono = document.getElementById('bloqueo-telefono').value.trim();
-            const correo   = document.getElementById('bloqueo-correo').value.trim();
-
-            const esBloqueo = !nombre;
-            const cliente   = esBloqueo ? 'BLOQUEADO' : nombre;
-            const contacto  = [telefono, correo].filter(Boolean).join(' | ') || '-';
+            if (!selectedBlockDate) return;
             const isoString = selectedBlockDate.toISOString();
-
-            document.getElementById('bloqueo-modal').style.display='none';
-
+            document.getElementById('bloqueo-modal').style.display = 'none';
             try {
-                // 1. Guardar en Supabase
                 await _supabase.from('citas').insert([{
-                    cliente: cliente,
+                    cliente: 'BLOQUEADO',
                     fecha_cita: isoString,
-                    contacto: contacto,
-                    paypal_order_id: (esBloqueo ? 'BLOQUEO_MANUAL_' : 'ADMIN_') + Date.now(),
+                    contacto: '-',
+                    paypal_order_id: 'BLOQUEO_MANUAL_' + Date.now(),
                     monto: 0
                 }]);
-
-                // 2. Sincronizar hacia Google Calendar
-                const titulo = esBloqueo ? '🚫 BLOQUEADO' : `⚖️ Asesoría: ${cliente}`;
-                const descripcion = esBloqueo
-                    ? 'Horario bloqueado manualmente.'
-                    : `Cliente: ${cliente}\nTeléfono: ${telefono}\nCorreo: ${correo}`;
-
                 if (gapi.client && gapi.client.getToken()) {
-                    await crearEventoCalendar(titulo, isoString, descripcion);
+                    await crearEventoCalendar('🚫 BLOQUEADO', isoString, 'Horario bloqueado manualmente.');
                 } else {
                     await fetch(GOOGLE_SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        body: JSON.stringify({ cliente, contacto, fecha: isoString, pagoId: esBloqueo ? 'BLOQUEO_MANUAL' : 'ADMIN' })
+                        method: 'POST', mode: 'no-cors',
+                        body: JSON.stringify({ cliente: 'BLOQUEADO', contacto: '-', fecha: isoString, pagoId: 'BLOQUEO_MANUAL' })
                     });
                 }
-
-                alert("Horario bloqueado con éxito.");
+                alert("Horario bloqueado.");
                 cargarCitas();
-                if(blockCalendar) blockCalendar.refetchEvents();
+                if (blockCalendar) blockCalendar.refetchEvents();
             } catch(e) {
-                alert("Ocurrió un error al intentar bloquear: " + e.message);
+                alert("Error al bloquear: " + e.message);
+            }
+        }
+
+        let citaCalendar = null;
+        let selectedCitaDate = null;
+
+        function abrirModalCita() {
+            document.getElementById('cita-modal').style.display = 'flex';
+            document.getElementById('cita-nombre').value = '';
+            document.getElementById('cita-telefono').value = '';
+            document.getElementById('cita-correo').value = '';
+            document.getElementById('cita-selected-info').style.display = 'none';
+            document.getElementById('btn-confirmar-cita').style.opacity = '0.5';
+            document.getElementById('btn-confirmar-cita').style.pointerEvents = 'none';
+            selectedCitaDate = null;
+
+            if (!citaCalendar) {
+                const calendarEl = document.getElementById('cita-calendar');
+                citaCalendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'timeGridWeek',
+                    initialDate: new Date(),
+                    locale: 'es',
+                    nowIndicator: true,
+                    scrollTime: '17:00:00',
+                    slotMinTime: '17:00:00',
+                    slotMaxTime: '21:10:00',
+                    slotDuration: '00:50:00',
+                    allDaySlot: false,
+                    selectable: true,
+                    headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
+                    events: gapi.client && gapi.client.getToken() ? obtenerEventosCalendar : GOOGLE_SCRIPT_URL,
+                    dateClick: function(info) {
+                        selectedCitaDate = info.date;
+                        document.getElementById('cita-display-fecha').innerText = selectedCitaDate.toLocaleString('es-MX', {
+                            weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                        });
+                        document.getElementById('cita-selected-info').style.display = 'block';
+                        const btn = document.getElementById('btn-confirmar-cita');
+                        btn.style.opacity = "1";
+                        btn.style.pointerEvents = "auto";
+                    }
+                });
+                citaCalendar.render();
+            } else {
+                citaCalendar.refetchEvents();
+                setTimeout(() => { citaCalendar.render(); }, 200);
+            }
+        }
+
+        async function confirmarCitaAdmin() {
+            if (!selectedCitaDate) return;
+            const nombre   = document.getElementById('cita-nombre').value.trim();
+            const telefono = document.getElementById('cita-telefono').value.trim();
+            const correo   = document.getElementById('cita-correo').value.trim();
+            if (!nombre || !telefono) { alert("Nombre y teléfono son obligatorios."); return; }
+            const contacto  = [telefono, correo].filter(Boolean).join(' | ');
+            const isoString = selectedCitaDate.toISOString();
+            document.getElementById('cita-modal').style.display = 'none';
+            try {
+                await _supabase.from('citas').insert([{
+                    cliente: nombre,
+                    fecha_cita: isoString,
+                    contacto: contacto,
+                    paypal_order_id: 'ADMIN_' + Date.now(),
+                    monto: 0
+                }]);
+                const descripcion = `Cliente: ${nombre}\nTeléfono: ${telefono}\nCorreo: ${correo}`;
+                if (gapi.client && gapi.client.getToken()) {
+                    await crearEventoCalendar(`⚖️ Asesoría: ${nombre}`, isoString, descripcion);
+                } else {
+                    await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST', mode: 'no-cors',
+                        body: JSON.stringify({ cliente: nombre, contacto, fecha: isoString, pagoId: 'ADMIN' })
+                    });
+                }
+                alert("Cita agendada con éxito.");
+                cargarCitas();
+                if (citaCalendar) citaCalendar.refetchEvents();
+            } catch(e) {
+                alert("Error al agendar: " + e.message);
+            }
+        }
+
+        async function descargarContactos() {
+            try {
+                const { data, error } = await _supabase
+                    .from('citas')
+                    .select('cliente, contacto, fecha_cita')
+                    .order('fecha_cita', { ascending: false });
+                if (error) throw error;
+                const clientes = (data || []).filter(c => !c.cliente.toUpperCase().includes('BLOQUEADO'));
+                if (clientes.length === 0) { alert("No hay contactos registrados."); return; }
+                const filas = clientes.map(c => {
+                    const partes = (c.contacto || '').split(' | ');
+                    const telefono = partes[0] || '';
+                    const correo   = partes[1] || '';
+                    const fecha    = new Date(c.fecha_cita).toLocaleString('es-MX');
+                    return [c.cliente, telefono, correo, fecha].map(v => `"${v}"`).join(',');
+                });
+                const csv = ['Nombre,Teléfono,Correo,Fecha Cita', ...filas].join('\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url  = URL.createObjectURL(blob);
+                const a    = document.createElement('a');
+                a.href = url; a.download = 'contactos-licmanene.csv'; a.click();
+                URL.revokeObjectURL(url);
+            } catch(e) {
+                alert("Error al descargar contactos: " + e.message);
+            }
+        }
+
+        async function cancelarCita(id) {
+            if (!confirm("¿Seguro que deseas cancelar esta cita? Esta acción no se puede deshacer.")) return;
+            try {
+                const { error } = await _supabase.from('citas').delete().eq('id', id);
+                if (error) throw error;
+                alert("Cita cancelada correctamente.");
+                cargarCitas();
+                if (blockCalendar) blockCalendar.refetchEvents();
+                if (citaCalendar) citaCalendar.refetchEvents();
+            } catch(e) {
+                alert("Error al cancelar: " + e.message);
             }
         }
 

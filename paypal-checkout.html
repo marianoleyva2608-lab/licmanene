@@ -71,10 +71,56 @@
             min-height: 450px;
         }
         .fc { color: white; font-size: 0.85rem; }
-        .fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255,255,255,0.05); }
-        .fc-button-primary { background-color: var(--accent) !important; border: none !important; color: black !important; font-weight: 600 !important; }
-        .fc-event { cursor: not-allowed; opacity: 0.7; }
-        .fc-timegrid-slot { height: 3em !important; }
+        .fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255,255,255,0.07); }
+        .fc-button-primary { background-color: var(--accent) !important; border: none !important; color: #000 !important; font-weight: 700 !important; border-radius: 8px !important; }
+        .fc-button-primary:hover { opacity: 0.85 !important; }
+        .fc-event { cursor: not-allowed; opacity: 0.9; border-radius: 6px !important; }
+        .fc-timegrid-slot { height: 3.5em !important; }
+        .fc-timegrid-col { background: #1c1c1c !important; }
+        .fc-timegrid-col.fc-day-today { background: rgba(212,175,55,0.06) !important; }
+        .fc-col-header-cell { background: #111 !important; }
+        .fc-timegrid-slot-lane:hover { background: rgba(212,175,55,0.12) !important; cursor: pointer; }
+        .fc-toolbar-title { color: var(--accent) !important; font-weight: 700; }
+        .fc-col-header-cell-cushion { color: var(--accent) !important; text-decoration: none !important; font-weight: 600; }
+        .fc-timegrid-slot-label-cushion { color: #ccc !important; font-size: 0.78rem; }
+        .fc-scrollgrid { border-radius: 8px; overflow: hidden; }
+
+        .tip-horario {
+            text-align: center;
+            color: #aaa;
+            font-size: 0.78rem;
+            margin-bottom: 10px;
+            padding: 6px 10px;
+            background: rgba(212,175,55,0.07);
+            border-radius: 8px;
+            border: 1px solid rgba(212,175,55,0.2);
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 0; align-items: flex-start; background: #111; }
+            .checkout-container {
+                max-width: 100%;
+                border-radius: 0;
+                padding: 16px 12px;
+                border: none;
+                box-shadow: none;
+                min-height: 100vh;
+            }
+            #calendar-container {
+                padding: 6px;
+                border-radius: 10px;
+                min-height: 400px;
+            }
+            .fc { font-size: 0.8rem; }
+            .fc-timegrid-slot { height: 5em !important; }
+            .fc-timegrid-slot-label-cushion { font-size: 0.7rem !important; }
+            .fc-button { padding: 7px 12px !important; font-size: 0.78rem !important; }
+            .fc-toolbar-title { font-size: 0.95rem !important; }
+            .header h2 { font-size: 1.2rem; }
+            .price { font-size: 1.8rem; }
+            .fc-event-title { font-size: 0.78rem; font-weight: 700; }
+            .fc-event-main { padding: 4px 6px !important; }
+        }
         
         .selected-slot-info {
             background: rgba(212, 175, 55, 0.1);
@@ -117,6 +163,9 @@
             <div class="price">$900.00 MXN</div>
         </div>
 
+        <div class="tip-horario">
+            <i class="fas fa-hand-pointer"></i> Toca un horario disponible para seleccionarlo
+        </div>
         <div id="calendar-container">
             <div id="calendar"></div>
         </div>
@@ -169,8 +218,7 @@
         document.addEventListener('DOMContentLoaded', async function() {
             const calendarEl = document.getElementById('calendar');
             const ahora = new Date();
-            const scrollH = Math.min(19, Math.max(8, ahora.getHours() - 1));
-            const scrollTime = `${String(scrollH).padStart(2, '0')}:00:00`;
+            const scrollTime = '17:00:00';
 
             // Cargar citas ocupadas desde Supabase
             let ocupados = [];
@@ -178,36 +226,49 @@
                 const { data } = await _supabase.from('citas').select('cliente, fecha_cita');
                 if (data) {
                     ocupados = data.map(c => ({
-                        title: c.cliente === 'BLOQUEADO' ? '🚫 No disponible' : '⚖️ Ocupado',
+                        title: c.cliente.toUpperCase().includes('BLOQUEADO') ? 'No disponible' : 'Ocupado',
                         start: c.fecha_cita,
                         end: new Date(new Date(c.fecha_cita).getTime() + 50 * 60 * 1000).toISOString(),
-                        backgroundColor: c.cliente === 'BLOQUEADO' ? '#4b4b4b' : '#d4af37',
+                        backgroundColor: c.cliente.toUpperCase().includes('BLOQUEADO') ? '#555' : '#b08020',
                         borderColor: 'transparent',
-                        textColor: '#000',
+                        textColor: '#fff',
                         display: 'block'
                     }));
                 }
             } catch (e) { console.error("Error cargando ocupados:", e); }
 
+            const isMobile = window.innerWidth < 768;
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
                 initialDate: new Date(),
                 locale: 'es',
                 nowIndicator: true,
                 scrollTime: scrollTime,
-                slotMinTime: '08:00:00',
-                slotMaxTime: '20:00:00',
+                slotMinTime: '17:00:00',
+                slotMaxTime: '22:00:00',
                 slotDuration: '00:50:00',
                 slotLabelInterval: '00:50:00',
                 snapDuration: '00:50:00',
+                slotLabelFormat: { hour: 'numeric', minute: '2-digit', hour12: true },
+                weekends: false,
                 allDaySlot: false,
                 selectable: true,
-                headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
+                headerToolbar: isMobile
+                    ? { left: 'prev,next', center: 'title', right: 'today' }
+                    : { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
                 events: ocupados,
                 dateClick: function(info) {
                     // Validar si la hora está en el futuro
                     if (info.date < new Date()) {
                         alert("Por favor selecciona una fecha futura.");
+                        return;
+                    }
+                    // Validar rango de horario (5 PM - 8:20 PM máximo inicio)
+                    const h = info.date.getHours();
+                    const m = info.date.getMinutes();
+                    const minutosDesde5pm = (h - 17) * 60 + m;
+                    if (h < 17 || minutosDesde5pm > 200) {
+                        alert("Los horarios disponibles son de 5:00 PM a 9:10 PM.");
                         return;
                     }
                     
