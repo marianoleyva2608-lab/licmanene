@@ -129,6 +129,11 @@
             color: white;
         }
         .fc { font-size: 0.85rem; }
+        .fc-timegrid-slot { height: 3.5em !important; }
+        .fc-timegrid-col { background: #1c1c1c !important; }
+        .fc-timegrid-col.fc-day-today { background: rgba(212,175,55,0.06) !important; }
+        .fc-timegrid-slot-label-cushion { color: #ccc !important; font-size: 0.78rem; }
+        .fc-toolbar-title { color: var(--accent) !important; font-weight: 700; }
         .fc-theme-standard td, .fc-theme-standard th { border: 1px solid rgba(255,255,255,0.05); }
         .fc-button-primary { background-color: var(--accent) !important; border: none !important; color: black !important; font-weight: 600 !important; }
         .fc-daygrid-day-number, .fc-col-header-cell-cushion { color: #ccc; text-decoration: none; }
@@ -341,26 +346,6 @@
         let blockCalendar = null;
         let selectedBlockDate = null;
 
-        async function eventosDesdeSupabase(fetchInfo, successCallback, failureCallback) {
-            try {
-                const ahora = new Date();
-                const { data } = await _supabase.from('citas').select('cliente, fecha_cita');
-                const ocupados = (data || [])
-                    .filter(c => new Date(c.fecha_cita) > ahora)
-                    .map(c => ({
-                        title: c.cliente.toUpperCase().includes('BLOQUEADO') ? 'No disponible' : 'Cita con Lic Manene',
-                        start: c.fecha_cita,
-                        end: new Date(new Date(c.fecha_cita).getTime() + 50 * 60 * 1000).toISOString(),
-                        backgroundColor: c.cliente.toUpperCase().includes('BLOQUEADO') ? '#555' : '#b08020',
-                        borderColor: 'transparent',
-                        textColor: '#fff',
-                    }));
-                successCallback(ocupados);
-            } catch(e) {
-                failureCallback(e);
-            }
-        }
-
         async function cargarCitas() {
             const tbody = document.getElementById('tabla-citas');
             try {
@@ -439,7 +424,7 @@
                     allDaySlot: false,
                     selectable: true,
                     headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
-                    events: eventosDesdeSupabase,
+                    events: gapi.client && gapi.client.getToken() ? obtenerEventosCalendar : GOOGLE_SCRIPT_URL,
                     dateClick: function(info) {
                         selectedBlockDate = info.date;
                         document.getElementById('display-fecha').innerText = selectedBlockDate.toLocaleString('es-MX', {
@@ -518,7 +503,7 @@
                     allDaySlot: false,
                     selectable: true,
                     headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay' },
-                    events: eventosDesdeSupabase,
+                    events: gapi.client && gapi.client.getToken() ? obtenerEventosCalendar : GOOGLE_SCRIPT_URL,
                     dateClick: function(info) {
                         selectedCitaDate = info.date;
                         document.getElementById('cita-display-fecha').innerText = selectedCitaDate.toLocaleString('es-MX', {
