@@ -95,6 +95,9 @@
             border: 1px solid rgba(212,175,55,0.2);
         }
 
+        .fc-scroller { -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+        .fc-scroller-harness { overflow: visible; }
+
         @media (max-width: 768px) {
             body { padding: 0; align-items: flex-start; background: #111; }
             .checkout-container {
@@ -274,6 +277,9 @@
                 slotLabelFormat: { hour: 'numeric', minute: '2-digit', hour12: true },
                 weekends: false,
                 contentHeight: 'auto',
+                dayHeaderFormat: isMobile
+                    ? { weekday: 'short', day: 'numeric', omitCommas: true }
+                    : { weekday: 'short', month: 'numeric', day: 'numeric', omitCommas: true },
                 allDaySlot: false,
                 selectable: true,
                 headerToolbar: isMobile
