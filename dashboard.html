@@ -164,6 +164,7 @@
             <button class="btn" onclick="descargarContactos()"><i class="fas fa-download"></i> Descargar Contactos</button>
             <button class="btn" onclick="abrirModalCita()"><i class="fas fa-calendar-plus"></i> Agendar Cita</button>
             <button class="btn" onclick="abrirModalBloqueo()">🚫 Bloquear Horario</button>
+            <button class="btn" id="btn-toggle-simular" onclick="toggleSimular()" style="background: transparent; color: #888; border-color: #555; box-shadow: none;">🧪 Modo Prueba: OFF</button>
             <button class="btn" style="background: transparent; color: var(--accent); border-color: var(--accent); box-shadow: none;" onclick="cerrarSesion()">Cerrar Sesión</button>
         </div>
     </div>
@@ -248,6 +249,17 @@
         let gapiInited = false;
         let gisInited = false;
 
+        // Inicializar estado botón modo prueba
+        document.addEventListener('DOMContentLoaded', function() {
+          const activo = localStorage.getItem('modoSimular') === 'true';
+          const btn = document.getElementById('btn-toggle-simular');
+          if (btn) {
+            btn.textContent = activo ? '🧪 Modo Prueba: ON' : '🧪 Modo Prueba: OFF';
+            btn.style.color = activo ? '#34d399' : '#888';
+            btn.style.borderColor = activo ? '#34d399' : '#555';
+          }
+        });
+
         function gapiLoaded() {
             gapi.load('client', async () => {
                 await gapi.client.init({
@@ -288,6 +300,16 @@
             } else {
                 tokenClient.requestAccessToken({ prompt: '' });
             }
+        }
+
+        function toggleSimular() {
+          const activo = localStorage.getItem('modoSimular') === 'true';
+          const nuevo = !activo;
+          localStorage.setItem('modoSimular', nuevo);
+          const btn = document.getElementById('btn-toggle-simular');
+          btn.textContent = nuevo ? '🧪 Modo Prueba: ON' : '🧪 Modo Prueba: OFF';
+          btn.style.color = nuevo ? '#34d399' : '#888';
+          btn.style.borderColor = nuevo ? '#34d399' : '#555';
         }
 
         function cerrarSesion() {

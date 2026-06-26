@@ -218,6 +218,11 @@
 
         // Inicializar Calendario Propio
         document.addEventListener('DOMContentLoaded', async function() {
+          // Mostrar botón de prueba si está activado desde el dashboard
+          if (localStorage.getItem('modoSimular') === 'true') {
+            const btnSimular = document.getElementById('btn-simular');
+            if (btnSimular) btnSimular.style.display = 'block';
+          }
             const calendarEl = document.getElementById('calendar');
             const ahora = new Date();
             const scrollTime = '17:00:00';
