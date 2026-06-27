@@ -191,11 +191,6 @@
 
         <div id="paypal-button-container"></div>
 
-        <!-- Botón de Prueba Técnica (Solo para validar conexión) -->
-        <button onclick="simularPagoExitoso()" id="btn-simular" style="display:none; margin-top: 15px; background: #333; color: #888; border: 1px solid #444; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.7rem; width: 100%;">
-            🧪 Simular Cita de Prueba (Bypass Pago)
-        </button>
-
         <div class="secure-badge">
             <i class="fas fa-shield-alt"></i> Pago seguro y sincronización inmediata
         </div>
@@ -218,11 +213,6 @@
 
         // Inicializar Calendario Propio
         document.addEventListener('DOMContentLoaded', async function() {
-          // Mostrar botón de prueba si está activado desde el dashboard
-          if (localStorage.getItem('modoSimular') === 'true') {
-            const btnSimular = document.getElementById('btn-simular');
-            if (btnSimular) btnSimular.style.display = 'block';
-          }
             const calendarEl = document.getElementById('calendar');
             const ahora = new Date();
             const scrollTime = '17:00:00';
@@ -398,44 +388,6 @@
                 });
             }
         }).render('#paypal-button-container');
-
-        // FUNCIÓN DE PRUEBA TÉCNICA
-        async function simularPagoExitoso() {
-            if (!selectedDateTime) { alert("Elige un horario primero"); return; }
-            const nombre   = document.getElementById('cust-name').value.trim();
-            const contacto = document.getElementById('cust-phone').value.trim();
-            const correo   = document.getElementById('cust-email').value.trim();
-            if (!nombre)   { alert("Por favor ingresa tu nombre completo."); document.getElementById('cust-name').focus(); return; }
-            if (!contacto) { alert("Por favor ingresa tu número de WhatsApp."); document.getElementById('cust-phone').focus(); return; }
-
-            console.log("Iniciando simulación...");
-            try {
-                // 1. Supabase
-                const { error: sbError } = await _supabase.from('citas').insert([{
-                    cliente: nombre,
-                    fecha_cita: selectedDateTime.toISOString(),
-                    contacto: contacto,
-                    paypal_order_id: 'MOCK_TEST_' + Date.now(),
-                    monto: 900
-                }]);
-                if (sbError) throw new Error("Supabase: " + sbError.message);
-
-                // 2. Google
-                await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify({
-                        cliente: nombre, contacto: contacto, correo: correo,
-                        fecha: selectedDateTime.toISOString(), pagoId: 'MOCK_TEST'
-                    })
-                });
-
-                document.getElementById('success-overlay').style.display = 'flex';
-                alert("✅ Cita guardada exitosamente.");
-            } catch (e) {
-                alert("❌ Error al guardar la cita:\n" + e.message);
-            }
-        }
     </script>
 </body>
 </html>
