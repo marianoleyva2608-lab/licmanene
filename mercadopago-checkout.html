@@ -371,7 +371,7 @@
                 if (!mp) mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-MX' });
                 if (walletController) await walletController.unmount();
                 walletController = await mp.bricks().create('wallet', 'wallet_container', {
-                    initialization: { preferenceId: resultado.preferenceId }
+                    initialization: { preferenceId: resultado.preferenceId, redirectMode: 'self' }
                 });
             } catch (e) {
                 console.error("Error generando el pago:", e);
