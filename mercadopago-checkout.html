@@ -156,6 +156,7 @@
         }
         .btn-pagar:hover { opacity: 0.9; }
         .btn-pagar:disabled { opacity: 0.6; cursor: not-allowed; }
+        .estado-pago-texto { color: #aaa; font-size: 0.85rem; margin-top: 15px; text-align: center; }
         .secure-badge { margin-top: 20px; font-size: 0.75rem; color: #666; }
     </style>
 </head>
@@ -192,7 +193,7 @@
             <input type="email" id="cust-email" placeholder="Ej. juan@correo.com">
         </div>
 
-        <button id="btn-continuar-pago" class="btn-pagar">Continuar al Pago</button>
+        <p id="estado-pago" class="estado-pago-texto">Completa tu horario y tus datos para ver el botón de pago.</p>
         <div id="wallet_container"></div>
 
         <div class="secure-badge">
@@ -313,9 +314,11 @@
                     
                     document.getElementById('display-date').innerText = rangeText;
                     document.getElementById('selected-info').style.display = 'block';
-                    
+
                     // Scroll suave hacia abajo
                     document.getElementById('selected-info').scrollIntoView({ behavior: 'smooth' });
+
+                    programarGeneracionPago();
                 }
             });
             calendar.render();
@@ -327,29 +330,36 @@
 
         let mp = null;
         let walletController = null;
-        const btnPagar = document.getElementById('btn-continuar-pago');
+        let generandoPago = false;
+        let ultimaClaveGenerada = '';
+        let debounceTimer = null;
 
-        btnPagar.addEventListener('click', async function() {
-            if (!selectedDateTime) {
-                alert("Por favor, selecciona primero un horario en el calendario.");
-                return;
-            }
-            const nombre = document.getElementById('cust-name').value.trim();
-            const contacto = document.getElementById('cust-phone').value.trim();
+        const estadoPago = document.getElementById('estado-pago');
+        const inputNombre = document.getElementById('cust-name');
+        const inputTelefono = document.getElementById('cust-phone');
+
+        function datosListos() {
+            return !!selectedDateTime && !!inputNombre.value.trim() && !!inputTelefono.value.trim();
+        }
+
+        function programarGeneracionPago() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(generarBotonPago, 600);
+        }
+
+        async function generarBotonPago() {
+            if (!datosListos() || generandoPago) return;
+
+            const nombre = inputNombre.value.trim();
+            const contacto = inputTelefono.value.trim();
             const correo = document.getElementById('cust-email').value.trim();
-            if (!nombre) {
-                alert("Por favor ingresa tu nombre completo.");
-                document.getElementById('cust-name').focus();
-                return;
-            }
-            if (!contacto) {
-                alert("Por favor ingresa tu número de WhatsApp.");
-                document.getElementById('cust-phone').focus();
-                return;
-            }
+            const clave = nombre + '|' + contacto + '|' + correo + '|' + selectedDateTime.toISOString();
 
-            btnPagar.disabled = true;
-            btnPagar.textContent = 'Generando pago...';
+            if (clave === ultimaClaveGenerada) return; // ya se generó para estos mismos datos
+            ultimaClaveGenerada = clave;
+
+            generandoPago = true;
+            estadoPago.textContent = 'Generando botón de pago...';
 
             try {
                 const resp = await fetch(GOOGLE_SCRIPT_URL, {
@@ -366,7 +376,7 @@
                 const resultado = await resp.json();
                 if (!resultado.success) throw new Error(resultado.error || 'No se pudo generar el pago.');
 
-                btnPagar.style.display = 'none';
+                estadoPago.style.display = 'none';
 
                 if (!mp) mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-MX' });
                 if (walletController) await walletController.unmount();
@@ -375,11 +385,16 @@
                 });
             } catch (e) {
                 console.error("Error generando el pago:", e);
-                alert("No se pudo iniciar el pago: " + e.message);
-                btnPagar.disabled = false;
-                btnPagar.textContent = 'Continuar al Pago';
+                estadoPago.style.display = 'block';
+                estadoPago.textContent = 'No se pudo generar el botón de pago. Intenta de nuevo en unos segundos.';
+                ultimaClaveGenerada = ''; // permitir reintentar con los mismos datos
+            } finally {
+                generandoPago = false;
             }
-        });
+        }
+
+        inputNombre.addEventListener('input', programarGeneracionPago);
+        inputTelefono.addEventListener('input', programarGeneracionPago);
     </script>
 </body>
 </html>
