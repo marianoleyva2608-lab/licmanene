@@ -16,9 +16,9 @@
     <!-- FullCalendar SDK -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js?v=1713123456"></script>
 
-    <!-- PayPal SDK (Live Mode) -->
-    <script src="https://www.paypal.com/sdk/js?client-id=BAAP7vmuZCUiX3_N9ANJi8DmmnG1MIg37pVmmnPVbrMeOc5XiOHhSfLewG8zLgx9zSNUSWbOxsR77Btv38&currency=MXN"></script>
-    
+    <!-- Mercado Pago SDK -->
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
+
     <style>
         :root {
             --accent: #d4af37;
@@ -145,15 +145,18 @@
         }
         .form-group input:focus { border-color: var(--accent); }
 
-        #paypal-button-container { margin-top: 15px; }
-        .secure-badge { margin-top: 20px; font-size: 0.75rem; color: #666; }
-        
-        #success-overlay {
-            display: none; position: fixed; inset: 0;
-            background: rgba(0,0,0,0.95); z-index: 1000;
-            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+        #wallet_container { margin-top: 15px; }
+        .btn-pagar {
+            width: 100%; padding: 14px;
+            background: var(--accent); color: #000;
+            border: none; border-radius: 10px;
+            font-weight: 700; font-size: 1rem;
+            font-family: 'Montserrat', sans-serif;
+            cursor: pointer; margin-top: 10px;
         }
-        #success-overlay i { font-size: 5rem; color: #34d399; margin-bottom: 20px; }
+        .btn-pagar:hover { opacity: 0.9; }
+        .btn-pagar:disabled { opacity: 0.6; cursor: not-allowed; }
+        .secure-badge { margin-top: 20px; font-size: 0.75rem; color: #666; }
     </style>
 </head>
 <body>
@@ -189,22 +192,16 @@
             <input type="email" id="cust-email" placeholder="Ej. juan@correo.com">
         </div>
 
-        <div id="paypal-button-container"></div>
+        <button id="btn-continuar-pago" class="btn-pagar">Continuar al Pago</button>
+        <div id="wallet_container"></div>
 
         <div class="secure-badge">
             <i class="fas fa-shield-alt"></i> Pago seguro y sincronización inmediata
         </div>
     </div>
 
-    <div id="success-overlay">
-        <i class="fas fa-check-circle"></i>
-        <h2>¡Cita Confirmada!</h2>
-        <p>Tu asesoría ha sido agendada con éxito.<br>Recibirás un correo con los detalles en breve.</p>
-        <button class="btn" style="margin-top:20px; background:var(--accent); padding:10px 20px; border:none; border-radius:8px; cursor:pointer;" onclick="window.location.href='index.html'">Volver al Inicio</button>
-    </div>
-
     <script>
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwAArmcTU7NJcm9MxLe9LdfmyxVp2SAG5BAiDwGiEIEkdRnQnDC0qkWp_hMDAiDT_ZLwQ/exec";
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykrwJFeoklBY-hFjYdosXpAITCfq_iPS5AwGYEjdTakVJW5MKgsFoDpmvZYReu797S6Q/exec";
         const SUPABASE_URL = "https://licmanene-supabase.vms1bk.easypanel.host";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
         
@@ -324,70 +321,65 @@
             calendar.render();
         });
 
-        // Configurar PayPal
-        paypal.Buttons({
-            createOrder: function(data, actions) {
-                if (!selectedDateTime) {
-                    alert("Por favor, selecciona primero un horario en el calendario.");
-                    return;
-                }
-                const nombre = document.getElementById('cust-name').value.trim();
-                const contacto = document.getElementById('cust-phone').value.trim();
-                if (!nombre) {
-                    alert("Por favor ingresa tu nombre completo.");
-                    document.getElementById('cust-name').focus();
-                    return;
-                }
-                if (!contacto) {
-                    alert("Por favor ingresa tu número de WhatsApp.");
-                    document.getElementById('cust-phone').focus();
-                    return;
-                }
-                return actions.order.create({
-                    purchase_units: [{
-                        description: "Asesoría Legal (Agendada: " + selectedDateTime.toLocaleString() + ")",
-                        amount: { currency_code: "MXN", value: "900.00" }
-                    }]
-                });
-            },
-            onApprove: function(data, actions) {
-                return actions.order.capture().then(async function(details) {
-                    const nombre   = document.getElementById('cust-name').value.trim() || details.payer.name.given_name;
-                    const contacto = document.getElementById('cust-phone').value.trim() || details.payer.email_address;
-                    const correo   = document.getElementById('cust-email').value.trim() || details.payer.email_address;
+        // Configurar Mercado Pago
+        // Reemplaza con tu Public Key (panel de Mercado Pago -> Credenciales)
+        const MP_PUBLIC_KEY = "TEST-c347ae0e-e681-401d-9ddb-71d9949bf469";
 
-                    try {
-                        // 1. Guardar en Supabase
-                        const { error: sbError } = await _supabase.from('citas').insert([{
-                            cliente: nombre,
-                            fecha_cita: selectedDateTime.toISOString(),
-                            contacto: contacto,
-                            paypal_order_id: data.orderID,
-                            monto: 900
-                        }]);
-                        if (sbError) throw new Error("Supabase: " + sbError.message);
+        let mp = null;
+        let walletController = null;
+        const btnPagar = document.getElementById('btn-continuar-pago');
 
-                        // 2. Enviar a Google Calendar + correo con Meet
-                        await fetch(GOOGLE_SCRIPT_URL, {
-                            method: 'POST',
-                            mode: 'no-cors',
-                            body: JSON.stringify({
-                                cliente: nombre,
-                                contacto: contacto,
-                                correo: correo,
-                                fecha: selectedDateTime.toISOString(),
-                                pagoId: data.orderID
-                            })
-                        });
-                    } catch (e) {
-                        console.error("Error en sincronización:", e);
-                        alert("⚠️ Pago recibido pero hubo un error al guardar la cita:\n" + e.message);
-                    }
-
-                    document.getElementById('success-overlay').style.display = 'flex';
-                });
+        btnPagar.addEventListener('click', async function() {
+            if (!selectedDateTime) {
+                alert("Por favor, selecciona primero un horario en el calendario.");
+                return;
             }
-        }).render('#paypal-button-container');
+            const nombre = document.getElementById('cust-name').value.trim();
+            const contacto = document.getElementById('cust-phone').value.trim();
+            const correo = document.getElementById('cust-email').value.trim();
+            if (!nombre) {
+                alert("Por favor ingresa tu nombre completo.");
+                document.getElementById('cust-name').focus();
+                return;
+            }
+            if (!contacto) {
+                alert("Por favor ingresa tu número de WhatsApp.");
+                document.getElementById('cust-phone').focus();
+                return;
+            }
+
+            btnPagar.disabled = true;
+            btnPagar.textContent = 'Generando pago...';
+
+            try {
+                const resp = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        accion: 'crear_preferencia_mp',
+                        cliente: nombre,
+                        contacto: contacto,
+                        correo: correo,
+                        fecha: selectedDateTime.toISOString(),
+                        baseUrl: window.location.origin
+                    })
+                });
+                const resultado = await resp.json();
+                if (!resultado.success) throw new Error(resultado.error || 'No se pudo generar el pago.');
+
+                btnPagar.style.display = 'none';
+
+                if (!mp) mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-MX' });
+                if (walletController) await walletController.unmount();
+                walletController = await mp.bricks().create('wallet', 'wallet_container', {
+                    initialization: { preferenceId: resultado.preferenceId }
+                });
+            } catch (e) {
+                console.error("Error generando el pago:", e);
+                alert("No se pudo iniciar el pago: " + e.message);
+                btnPagar.disabled = false;
+                btnPagar.textContent = 'Continuar al Pago';
+            }
+        });
     </script>
 </body>
 </html>

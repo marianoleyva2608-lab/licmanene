@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="cache-control" content="no-cache, must-revalidate, post-check=0, pre-check=0">
+    <meta http-equiv="expires" content="0">
+    <meta http-equiv="pragma" content="no-cache">
+    <title>Confirmando tu Pago - Lic Manene</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=1713123456"></script>
+
+    <style>
+        :root {
+            --accent: #d4af37;
+            --bg: #0c0b0a;
+            --surface: #1a1a1a;
+        }
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--bg);
+            color: #f8f8f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .card {
+            background: var(--surface);
+            width: 100%;
+            max-width: 500px;
+            padding: 40px 30px;
+            border-radius: 20px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            text-align: center;
+        }
+        .estado { display: none; flex-direction: column; align-items: center; }
+        .estado.activo { display: flex; }
+        .estado i { font-size: 4.5rem; margin-bottom: 20px; }
+        .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid rgba(212, 175, 55, 0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            margin-bottom: 20px;
+            animation: girar 0.8s linear infinite;
+        }
+        @keyframes girar { to { transform: rotate(360deg); } }
+        h2 { margin: 0 0 10px 0; color: var(--accent); }
+        p { color: #ccc; line-height: 1.5; }
+        .btn {
+            margin-top: 20px; background: var(--accent); color: #000;
+            padding: 12px 24px; border: none; border-radius: 8px;
+            font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div id="estado-verificando" class="estado activo">
+            <div class="spinner"></div>
+            <h2>Verificando tu pago...</h2>
+            <p>Esto puede tardar unos segundos. No cierres esta página.</p>
+        </div>
+
+        <div id="estado-exito" class="estado">
+            <i class="fas fa-check-circle" style="color:#34d399;"></i>
+            <h2>¡Cita Confirmada!</h2>
+            <p>Tu asesoría ha sido agendada con éxito.<br>Recibirás un correo con los detalles en breve.</p>
+            <a class="btn" href="index.html">Volver al Inicio</a>
+        </div>
+
+        <div id="estado-error" class="estado">
+            <i class="fas fa-exclamation-circle" style="color:#f87171;"></i>
+            <h2>No se pudo confirmar tu pago</h2>
+            <p id="error-msg">Ocurrió un problema al verificar tu pago.</p>
+            <a class="btn" href="mercadopago-checkout.html">Intentar de Nuevo</a>
+        </div>
+    </div>
+
+    <script>
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykrwJFeoklBY-hFjYdosXpAITCfq_iPS5AwGYEjdTakVJW5MKgsFoDpmvZYReu797S6Q/exec";
+        const SUPABASE_URL = "https://licmanene-supabase.vms1bk.easypanel.host";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
+
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function mostrarEstado(id) {
+            document.querySelectorAll('.estado').forEach(el => el.classList.remove('activo'));
+            document.getElementById(id).classList.add('activo');
+        }
+
+        function mostrarError(mensaje) {
+            document.getElementById('error-msg').textContent = mensaje;
+            mostrarEstado('estado-error');
+        }
+
+        (async function() {
+            const params = new URLSearchParams(window.location.search);
+            const paymentId = params.get('payment_id') || params.get('collection_id');
+            const status = params.get('status') || params.get('collection_status');
+
+            if (status === 'rejected') {
+                mostrarError('El pago fue rechazado. Puedes intentar nuevamente con otro medio de pago.');
+                return;
+            }
+            if (!paymentId) {
+                mostrarError('No se encontró información del pago en la URL de retorno.');
+                return;
+            }
+
+            try {
+                const resp = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ accion: 'verificar_pago_mp', paymentId: paymentId })
+                });
+                const resultado = await resp.json();
+                if (!resultado.success) {
+                    mostrarError(resultado.error || 'El pago no pudo ser verificado.');
+                    return;
+                }
+
+                // Guardar en Supabase solo si no existe ya (idempotencia ante refresh del navegador)
+                const { data: existente } = await _supabase
+                    .from('citas')
+                    .select('id')
+                    .eq('paypal_order_id', String(paymentId))
+                    .maybeSingle();
+
+                if (!existente) {
+                    const { error: sbError } = await _supabase.from('citas').insert([{
+                        cliente: resultado.cliente,
+                        fecha_cita: resultado.fecha,
+                        contacto: resultado.contacto,
+                        paypal_order_id: String(paymentId),
+                        monto: resultado.monto || 900
+                    }]);
+                    if (sbError) console.error('Error guardando en Supabase:', sbError.message);
+                }
+
+                mostrarEstado('estado-exito');
+            } catch (e) {
+                console.error('Error verificando el pago:', e);
+                mostrarError('Ocurrió un error al confirmar tu cita: ' + e.message);
+            }
+        })();
+    </script>
+</body>
+</html>

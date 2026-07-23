@@ -196,12 +196,8 @@
     <script>
         const btnAgendar = document.getElementById('btn-agendar');
 
-        // Modo de Pago Activo: PayPal Sandbox
-        // Redirigimos a la pasarela de prueba de PayPal que acabamos de implementar
-        btnAgendar.href = "paypal-checkout.html";
-        
-        // El link de Mercado Pago queda comentado por si se desea reactivar en el futuro
-        // const MERCADO_PAGO_LINK = "https://mpago.la/xxxxxx"; 
+        // Redirigimos a la pasarela de pago con Mercado Pago
+        btnAgendar.href = "mercadopago-checkout.html";
 
         // Acceso Oculto al Panel de Citas: Multi-Tap (5 Toques) o Tap Largo de Seguridad
         const headline = document.querySelector('.headline');
