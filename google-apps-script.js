@@ -120,32 +120,41 @@ function crearCitaCalendario(data) {
       '<p style="color:#888;font-size:0.8rem;margin:4px 0 0 0;">Asesoria Legal Profesional</p>' +
       '</div>';
 
-    // Correo al cliente
-    GmailApp.sendEmail(
-      data.correo,
-      'Confirmacion de Asesoria - Lic. Manene',
-      'Tu asesoria del ' + fechaFormato + ' ha sido confirmada. Duracion: 50 minutos.' + (meetLink ? ' Meet: ' + meetLink : ''),
-      { htmlBody: htmlCorreo }
-    );
+    // Correo al cliente. La cita y el pago ya estan confirmados en este punto,
+    // asi que un correo invalido no debe tumbar la respuesta ni bloquear la reserva.
+    try {
+      GmailApp.sendEmail(
+        data.correo,
+        'Confirmacion de Asesoria - Lic. Manene',
+        'Tu asesoria del ' + fechaFormato + ' ha sido confirmada. Duracion: 50 minutos.' + (meetLink ? ' Meet: ' + meetLink : ''),
+        { htmlBody: htmlCorreo }
+      );
+    } catch (mailErr) {
+      Logger.log('Error enviando correo al cliente (' + data.correo + '): ' + mailErr.toString());
+    }
 
     // Notificacion a Manene
-    GmailApp.sendEmail(
-      CORREO_MANENE,
-      'Nueva Cita Agendada: ' + data.cliente,
-      'Nueva cita agendada.\nCliente: ' + data.cliente + '\nContacto: ' + data.contacto + '\nFecha: ' + fechaFormato + (meetLink ? '\nMeet: ' + meetLink : ''),
-      {
-        htmlBody:
-          '<div style="font-family:Arial,sans-serif;max-width:600px;background:#fff;padding:20px;border-radius:8px;">' +
-          '<h2 style="color:#d4af37;">Nueva Cita Agendada</h2>' +
-          '<p><strong>Cliente:</strong> ' + data.cliente + '</p>' +
-          '<p><strong>Contacto:</strong> ' + data.contacto + '</p>' +
-          '<p><strong>Correo:</strong> ' + data.correo + '</p>' +
-          '<p><strong>Fecha:</strong> ' + fechaFormato + '</p>' +
-          '<p><strong>Duracion:</strong> 50 minutos</p>' +
-          (meetLink ? '<p><strong>Google Meet:</strong> <a href="' + meetLink + '">' + meetLink + '</a></p>' : '') +
-          '</div>'
-      }
-    );
+    try {
+      GmailApp.sendEmail(
+        CORREO_MANENE,
+        'Nueva Cita Agendada: ' + data.cliente,
+        'Nueva cita agendada.\nCliente: ' + data.cliente + '\nContacto: ' + data.contacto + '\nFecha: ' + fechaFormato + (meetLink ? '\nMeet: ' + meetLink : ''),
+        {
+          htmlBody:
+            '<div style="font-family:Arial,sans-serif;max-width:600px;background:#fff;padding:20px;border-radius:8px;">' +
+            '<h2 style="color:#d4af37;">Nueva Cita Agendada</h2>' +
+            '<p><strong>Cliente:</strong> ' + data.cliente + '</p>' +
+            '<p><strong>Contacto:</strong> ' + data.contacto + '</p>' +
+            '<p><strong>Correo:</strong> ' + data.correo + '</p>' +
+            '<p><strong>Fecha:</strong> ' + fechaFormato + '</p>' +
+            '<p><strong>Duracion:</strong> 50 minutos</p>' +
+            (meetLink ? '<p><strong>Google Meet:</strong> <a href="' + meetLink + '">' + meetLink + '</a></p>' : '') +
+            '</div>'
+        }
+      );
+    } catch (mailErr) {
+      Logger.log('Error enviando notificacion al despacho: ' + mailErr.toString());
+    }
   }
 
   return { eventId: eventId, meetLink: meetLink };

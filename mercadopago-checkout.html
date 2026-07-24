@@ -339,8 +339,10 @@
         const inputTelefono = document.getElementById('cust-phone');
         const inputCorreo = document.getElementById('cust-email');
 
+        const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
         function datosListos() {
-            return !!selectedDateTime && !!inputNombre.value.trim() && !!inputTelefono.value.trim() && !!inputCorreo.value.trim();
+            return !!selectedDateTime && !!inputNombre.value.trim() && !!inputTelefono.value.trim() && EMAIL_REGEX.test(inputCorreo.value.trim());
         }
 
         function programarGeneracionPago() {
