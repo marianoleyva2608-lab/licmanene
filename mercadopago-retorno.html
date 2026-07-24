@@ -10,9 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Supabase SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2?v=1713123456"></script>
-
     <style>
         :root {
             --accent: #d4af37;
@@ -77,6 +74,15 @@
             <a class="btn" href="index.html">Volver al Inicio</a>
         </div>
 
+        <div id="estado-pendiente" class="estado">
+            <i class="fas fa-clock" style="color:#d4af37;"></i>
+            <h2>Pago en Proceso</h2>
+            <p>Tu pago quedó pendiente de confirmación (por ejemplo, pago en efectivo o transferencia).<br>
+               En cuanto se confirme te llegará un correo con los detalles de tu cita.<br>
+               <strong>No es necesario que vuelvas a pagar.</strong></p>
+            <a class="btn" href="index.html">Volver al Inicio</a>
+        </div>
+
         <div id="estado-error" class="estado">
             <i class="fas fa-exclamation-circle" style="color:#f87171;"></i>
             <h2>No se pudo confirmar tu pago</h2>
@@ -87,10 +93,6 @@
 
     <script>
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykrwJFeoklBY-hFjYdosXpAITCfq_iPS5AwGYEjdTakVJW5MKgsFoDpmvZYReu797S6Q/exec";
-        const SUPABASE_URL = "https://licmanene-supabase.vms1bk.easypanel.host";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
-
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         function mostrarEstado(id) {
             document.querySelectorAll('.estado').forEach(el => el.classList.remove('activo'));
@@ -122,29 +124,22 @@
                     body: JSON.stringify({ accion: 'verificar_pago_mp', paymentId: paymentId })
                 });
                 const resultado = await resp.json();
+
                 if (!resultado.success) {
-                    mostrarError(resultado.error || 'El pago no pudo ser verificado.');
+                    // Pagos con metodos asincronos (OXXO, transferencia) quedan "pending" al
+                    // volver del checkout. Un webhook en el backend los confirmara despues,
+                    // asi que aqui NO se debe invitar al cliente a pagar de nuevo.
+                    if (resultado.estado === 'pending' || resultado.estado === 'in_process') {
+                        mostrarEstado('estado-pendiente');
+                    } else {
+                        mostrarError(resultado.error || 'El pago no pudo ser verificado.');
+                    }
                     return;
                 }
 
-                // Guardar en Supabase solo si no existe ya (idempotencia ante refresh del navegador)
-                const { data: existente } = await _supabase
-                    .from('citas')
-                    .select('id')
-                    .eq('paypal_order_id', String(paymentId))
-                    .maybeSingle();
-
-                if (!existente) {
-                    const { error: sbError } = await _supabase.from('citas').insert([{
-                        cliente: resultado.cliente,
-                        fecha_cita: resultado.fecha,
-                        contacto: resultado.contacto,
-                        paypal_order_id: String(paymentId),
-                        monto: resultado.monto || 900
-                    }]);
-                    if (sbError) console.error('Error guardando en Supabase:', sbError.message);
-                }
-
+                // La cita y el registro en Supabase ya quedaron guardados por el backend
+                // (Apps Script) al verificar el pago, tanto si llega por este flujo como
+                // por el webhook de Mercado Pago.
                 mostrarEstado('estado-exito');
             } catch (e) {
                 console.error('Error verificando el pago:', e);

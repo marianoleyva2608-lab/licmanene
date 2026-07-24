@@ -389,7 +389,16 @@
             } catch (e) {
                 console.error("Error generando el pago:", e);
                 estadoPago.style.display = 'block';
-                estadoPago.textContent = 'No se pudo generar el botón de pago. Intenta de nuevo en unos segundos.';
+
+                if (/disponible/i.test(e.message || '')) {
+                    // Otra persona reservó este horario mientras se llenaba el formulario:
+                    // obligar a elegir otro en vez de reintentar el mismo horario.
+                    estadoPago.textContent = 'Ese horario acaba de ser reservado por otra persona. Por favor selecciona otro horario disponible.';
+                    selectedDateTime = null;
+                    document.getElementById('selected-info').style.display = 'none';
+                } else {
+                    estadoPago.textContent = 'No se pudo generar el botón de pago. Intenta de nuevo en unos segundos.';
+                }
                 ultimaClaveGenerada = ''; // permitir reintentar con los mismos datos
             } finally {
                 generandoPago = false;

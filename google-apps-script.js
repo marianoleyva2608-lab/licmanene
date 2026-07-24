@@ -3,6 +3,8 @@
 // ================================================
 
 var CORREO_MANENE = 'asesoriaslicmanene@gmail.com';
+var SUPABASE_URL = 'https://licmanene-supabase.vms1bk.easypanel.host';
+var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
 
 function doPost(e) {
   const output = ContentService.createTextOutput();
@@ -10,6 +12,19 @@ function doPost(e) {
 
   try {
     const data = JSON.parse(e.postData.contents);
+
+    // Notificacion webhook de Mercado Pago (pago confirmado async, ej. OXXO,
+    // o el navegador del cliente se cerro antes de volver a mercadopago-retorno.html).
+    const webhookPaymentId = extraerPaymentIdDeNotificacionMP(data, e.parameter);
+    if (webhookPaymentId) {
+      try {
+        verificarPagoMP({ paymentId: webhookPaymentId });
+      } catch (webhookErr) {
+        Logger.log('Error procesando webhook MP (' + webhookPaymentId + '): ' + webhookErr.toString());
+      }
+      output.setContent(JSON.stringify({ success: true }));
+      return output;
+    }
 
     if (data.accion === 'crear_preferencia_mp') {
       output.setContent(JSON.stringify(crearPreferenciaMP(data)));
@@ -166,10 +181,86 @@ function crearCitaCalendario(data) {
 // Requiere configurar la propiedad de script MP_ACCESS_TOKEN:
 // Editor de Apps Script -> Configuracion del proyecto -> Propiedades del script.
 
+// Identifica si un POST/GET es una notificacion de Mercado Pago (webhook) y
+// devuelve el paymentId, o null si no lo es.
+function extraerPaymentIdDeNotificacionMP(data, params) {
+  // Webhooks v2 (POST JSON): { type: "payment", data: { id: "123" } }
+  if (data && data.type === 'payment' && data.data && data.data.id) {
+    return String(data.data.id);
+  }
+  // IPN clasico (query params): ?type=payment&data.id=123 o ?topic=payment&id=123
+  if (params) {
+    if (params.type === 'payment' && params['data.id']) return String(params['data.id']);
+    if (params.topic === 'payment' && params.id) return String(params.id);
+  }
+  return null;
+}
+
+function supabaseHeaders() {
+  return {
+    apikey: SUPABASE_KEY,
+    Authorization: 'Bearer ' + SUPABASE_KEY,
+    'Content-Type': 'application/json'
+  };
+}
+
+// Consulta si ya hay una cita (pagada o bloqueada) que se traslape con el horario pedido.
+// Si Supabase no responde, falla "abierto" (no bloquea el pago) para no tumbar el checkout
+// por un problema transitorio de red.
+function horarioOcupado(fechaISO) {
+  try {
+    const inicio = new Date(fechaISO);
+    const fin = new Date(inicio.getTime() + 50 * 60 * 1000);
+    const desde = new Date(inicio.getTime() - 60 * 60 * 1000).toISOString();
+    const url = SUPABASE_URL + '/rest/v1/citas?select=fecha_cita&fecha_cita=gte.' +
+      encodeURIComponent(desde) + '&fecha_cita=lte.' + encodeURIComponent(fin.toISOString());
+    const resp = UrlFetchApp.fetch(url, { method: 'get', headers: supabaseHeaders(), muteHttpExceptions: true });
+    const filas = JSON.parse(resp.getContentText());
+    if (!Array.isArray(filas)) return false;
+    return filas.some(function(f) {
+      const otroInicio = new Date(f.fecha_cita);
+      const otroFin = new Date(otroInicio.getTime() + 50 * 60 * 1000);
+      return inicio < otroFin && fin > otroInicio;
+    });
+  } catch (e) {
+    Logger.log('Error verificando disponibilidad en Supabase: ' + e.toString());
+    return false;
+  }
+}
+
+// Inserta la cita en Supabase (idempotente por paymentId) para que quede reflejada
+// en la disponibilidad publica y en los paneles de administracion, sin depender de
+// que el navegador del cliente siga abierto.
+function guardarCitaEnSupabase(citaData, paymentId, monto) {
+  const checkUrl = SUPABASE_URL + '/rest/v1/citas?paypal_order_id=eq.' +
+    encodeURIComponent(String(paymentId)) + '&select=id';
+  const checkResp = UrlFetchApp.fetch(checkUrl, { method: 'get', headers: supabaseHeaders(), muteHttpExceptions: true });
+  let existentes = [];
+  try { existentes = JSON.parse(checkResp.getContentText()); } catch (e) { existentes = []; }
+  if (Array.isArray(existentes) && existentes.length > 0) return; // ya estaba guardada
+
+  UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/citas', {
+    method: 'post',
+    headers: supabaseHeaders(),
+    payload: JSON.stringify([{
+      cliente: citaData.cliente,
+      fecha_cita: citaData.fecha,
+      contacto: citaData.contacto,
+      paypal_order_id: String(paymentId),
+      monto: monto || 900
+    }]),
+    muteHttpExceptions: true
+  });
+}
+
 function crearPreferenciaMP(data) {
   const accessToken = PropertiesService.getScriptProperties().getProperty('MP_ACCESS_TOKEN');
   if (!accessToken) {
     return { success: false, error: 'Falta configurar MP_ACCESS_TOKEN en las propiedades del script.' };
+  }
+
+  if (horarioOcupado(data.fecha)) {
+    return { success: false, error: 'Ese horario ya no esta disponible. Por favor selecciona otro horario.' };
   }
 
   const referencia = {
@@ -199,7 +290,8 @@ function crearPreferenciaMP(data) {
       failure: baseUrl + '/mercadopago-retorno.html'
     },
     auto_return: 'approved',
-    statement_descriptor: 'LIC MANENE'
+    statement_descriptor: 'LIC MANENE',
+    notification_url: ScriptApp.getService().getUrl()
   };
 
   const response = UrlFetchApp.fetch('https://api.mercadopago.com/checkout/preferences', {
@@ -241,7 +333,7 @@ function verificarPagoMP(data) {
   const pago = JSON.parse(response.getContentText());
 
   if (pago.status !== 'approved') {
-    return { success: false, error: 'El pago no esta aprobado. Estado: ' + pago.status };
+    return { success: false, error: 'El pago no esta aprobado. Estado: ' + pago.status, estado: pago.status };
   }
 
   let referencia;
@@ -260,6 +352,16 @@ function verificarPagoMP(data) {
   };
 
   const creada = crearCitaCalendario(citaData);
+
+  // Guardar la cita en Supabase desde el backend (no depende de que el navegador
+  // del cliente siga abierto): asi la disponibilidad publica y los paneles de
+  // administracion quedan al dia incluso si la confirmacion llega por webhook.
+  try {
+    guardarCitaEnSupabase(citaData, paymentId, pago.transaction_amount);
+  } catch (sbErr) {
+    Logger.log('Error guardando cita en Supabase (' + paymentId + '): ' + sbErr.toString());
+  }
+
   const resultado = {
     success: true,
     eventId: creada.eventId,
@@ -278,6 +380,18 @@ function verificarPagoMP(data) {
 function doGet(e) {
   const output = ContentService.createTextOutput();
   output.setMimeType(ContentService.MimeType.JSON);
+
+  // Notificacion webhook de Mercado Pago via GET (IPN clasico).
+  const webhookPaymentId = extraerPaymentIdDeNotificacionMP(null, e.parameter);
+  if (webhookPaymentId) {
+    try {
+      verificarPagoMP({ paymentId: webhookPaymentId });
+    } catch (webhookErr) {
+      Logger.log('Error procesando webhook MP GET (' + webhookPaymentId + '): ' + webhookErr.toString());
+    }
+    output.setContent(JSON.stringify({ success: true }));
+    return output;
+  }
 
   try {
     const calendar = CalendarApp.getDefaultCalendar();
