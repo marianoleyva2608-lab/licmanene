@@ -262,6 +262,28 @@ function guardarCitaEnSupabase(citaData, paymentId, monto) {
   });
 }
 
+// Avisa al despacho cuando un pago aprobado cae en un horario que ya estaba
+// ocupado por otra cita (doble reserva por pagos en paralelo). El pago ya se
+// cobro, asi que la cita se crea igual y aqui solo se notifica para resolverlo.
+function alertarChoqueDeHorario(citaData, paymentId) {
+  const inicio = new Date(citaData.fecha);
+  const fechaFormato = inicio.toLocaleString('es-MX', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City'
+  });
+  GmailApp.sendEmail(
+    CORREO_MANENE,
+    'ATENCION: doble reserva del mismo horario',
+    'Un pago aprobado cayo en un horario que ya estaba ocupado por otra cita.\n\n' +
+    'Cliente: ' + citaData.cliente + '\n' +
+    'Contacto: ' + citaData.contacto + '\n' +
+    'Correo: ' + citaData.correo + '\n' +
+    'Fecha: ' + fechaFormato + '\n' +
+    'Pago ID: ' + paymentId + '\n\n' +
+    'Hay dos citas en el mismo horario. Reagenda o reembolsa a uno de los clientes.'
+  );
+}
+
 function crearPreferenciaMP(data) {
   const accessToken = PropertiesService.getScriptProperties().getProperty('MP_ACCESS_TOKEN');
   if (!accessToken) {
@@ -334,56 +356,90 @@ function verificarPagoMP(data) {
   const cacheado = cache.get(cacheKey);
   if (cacheado) return JSON.parse(cacheado);
 
-  const response = UrlFetchApp.fetch('https://api.mercadopago.com/v1/payments/' + paymentId, {
-    method: 'get',
-    headers: { Authorization: 'Bearer ' + accessToken },
-    muteHttpExceptions: true
-  });
-  const pago = JSON.parse(response.getContentText());
-
-  if (pago.status !== 'approved') {
-    return { success: false, error: 'El pago no esta aprobado. Estado: ' + pago.status, estado: pago.status };
-  }
-
-  let referencia;
+  // Fix 1 (concurrencia): serializar el procesamiento de un pago. El retorno del
+  // navegador y el webhook de Mercado Pago pueden entrar casi al mismo tiempo; sin
+  // este candado ambos crearian el evento en Calendar y enviarian correos por duplicado.
+  const lock = LockService.getScriptLock();
   try {
-    referencia = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(pago.external_reference)).getDataAsString());
-  } catch (e) {
-    return { success: false, error: 'No se pudo leer la referencia de la cita.' };
+    lock.waitLock(25000);
+  } catch (lockErr) {
+    return { success: false, error: 'Tu pago se esta procesando, espera unos segundos y recarga la pagina.' };
   }
 
-  const citaData = {
-    cliente: referencia.n,
-    contacto: referencia.c,
-    correo: referencia.e,
-    fecha: referencia.f,
-    pagoId: paymentId
-  };
-
-  const creada = crearCitaCalendario(citaData);
-
-  // Guardar la cita en Supabase desde el backend (no depende de que el navegador
-  // del cliente siga abierto): asi la disponibilidad publica y los paneles de
-  // administracion quedan al dia incluso si la confirmacion llega por webhook.
   try {
-    guardarCitaEnSupabase(citaData, paymentId, pago.transaction_amount);
-  } catch (sbErr) {
-    Logger.log('Error guardando cita en Supabase (' + paymentId + '): ' + sbErr.toString());
+    // Re-chequear dentro del candado: otra ejecucion (webhook o navegador) pudo
+    // terminar de procesar este mismo pago mientras esperabamos el lock.
+    const yaProcesado = cache.get(cacheKey);
+    if (yaProcesado) return JSON.parse(yaProcesado);
+
+    const response = UrlFetchApp.fetch('https://api.mercadopago.com/v1/payments/' + paymentId, {
+      method: 'get',
+      headers: { Authorization: 'Bearer ' + accessToken },
+      muteHttpExceptions: true
+    });
+    const pago = JSON.parse(response.getContentText());
+
+    if (pago.status !== 'approved') {
+      return { success: false, error: 'El pago no esta aprobado. Estado: ' + pago.status, estado: pago.status };
+    }
+
+    let referencia;
+    try {
+      referencia = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(pago.external_reference)).getDataAsString());
+    } catch (e) {
+      return { success: false, error: 'No se pudo leer la referencia de la cita.' };
+    }
+
+    const citaData = {
+      cliente: referencia.n,
+      contacto: referencia.c,
+      correo: referencia.e,
+      fecha: referencia.f,
+      pagoId: paymentId
+    };
+
+    // Fix 2 (doble reserva): re-validar disponibilidad ahora que el pago esta
+    // confirmado. El chequeo al crear la preferencia no evita que dos personas
+    // paguen el mismo horario en paralelo. Como el pago YA se cobro, no se cancela
+    // la cita (dejar al cliente sin nada seria peor): se crea igual y se alerta al
+    // despacho del choque para que reagende o reembolse a uno de los dos.
+    const horarioEnConflicto = horarioOcupado(citaData.fecha);
+
+    const creada = crearCitaCalendario(citaData);
+
+    // Guardar la cita en Supabase desde el backend (no depende de que el navegador
+    // del cliente siga abierto): asi la disponibilidad publica y los paneles de
+    // administracion quedan al dia incluso si la confirmacion llega por webhook.
+    try {
+      guardarCitaEnSupabase(citaData, paymentId, pago.transaction_amount);
+    } catch (sbErr) {
+      Logger.log('Error guardando cita en Supabase (' + paymentId + '): ' + sbErr.toString());
+    }
+
+    if (horarioEnConflicto) {
+      try {
+        alertarChoqueDeHorario(citaData, paymentId);
+      } catch (alertErr) {
+        Logger.log('Error enviando alerta de choque de horario (' + paymentId + '): ' + alertErr.toString());
+      }
+    }
+
+    const resultado = {
+      success: true,
+      eventId: creada.eventId,
+      meetLink: creada.meetLink,
+      cliente: citaData.cliente,
+      contacto: citaData.contacto,
+      correo: citaData.correo,
+      fecha: citaData.fecha,
+      monto: pago.transaction_amount
+    };
+
+    cache.put(cacheKey, JSON.stringify(resultado), 21600); // 6 horas
+    return resultado;
+  } finally {
+    lock.releaseLock();
   }
-
-  const resultado = {
-    success: true,
-    eventId: creada.eventId,
-    meetLink: creada.meetLink,
-    cliente: citaData.cliente,
-    contacto: citaData.contacto,
-    correo: citaData.correo,
-    fecha: citaData.fecha,
-    monto: pago.transaction_amount
-  };
-
-  cache.put(cacheKey, JSON.stringify(resultado), 21600); // 6 horas
-  return resultado;
 }
 
 function doGet(e) {
