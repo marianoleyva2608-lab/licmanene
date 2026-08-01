@@ -151,6 +151,59 @@
             box-sizing: border-box;
         }
         .form-group input:focus { border-color: var(--accent); }
+
+        /* Responsive: celulares angostos (ej. pantalla de portada del Z Fold) */
+        @media (max-width: 420px) {
+            body { padding: 12px; }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .header h1 { font-size: 1.3rem; }
+            .header > div { width: 100%; }
+            .header .btn, .header > div > span { width: 100%; box-sizing: border-box; justify-content: center; text-align: center; }
+            .header .btn { display: flex; align-items: center; justify-content: center; }
+
+            table, thead, tbody, th, td, tr { display: block; width: 100%; }
+            thead { display: none; }
+            .table-container { overflow-x: visible; }
+            tbody#tabla-citas tr {
+                margin-bottom: 14px;
+                border: 1px solid rgba(212, 175, 55, 0.2);
+                border-radius: 12px;
+                padding: 6px 0;
+                background: var(--surface);
+            }
+            tbody#tabla-citas tr:hover { background: var(--surface); }
+            tbody#tabla-citas td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 14px;
+                border-bottom: 1px solid rgba(255,255,255,0.05);
+                text-align: right;
+            }
+            tbody#tabla-citas tr td:last-child { border-bottom: none; }
+            tbody#tabla-citas td[data-label]::before {
+                content: attr(data-label);
+                color: var(--accent);
+                font-weight: 600;
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                text-align: left;
+                flex-shrink: 0;
+            }
+            /* Fila de "cargando" / "sin registros" / error, sin data-label */
+            tbody#tabla-citas tr td[colspan] {
+                display: block;
+                text-align: center;
+                border: none;
+                background: transparent;
+            }
+        }
     </style>
 </head>
 <body>
@@ -371,18 +424,18 @@
 
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td style="font-weight: 600; color: ${isBloqueo ? '#ef4444' : '#fff'};">
+                        <td data-label="Cliente" style="font-weight: 600; color: ${isBloqueo ? '#ef4444' : '#fff'};">
                             ${isBloqueo ? '<i class="fas fa-ban"></i> BLOQUEADO' : cita.cliente}
                         </td>
-                        <td style="color: #bbb;">${isBloqueo ? '-' : cita.contacto}</td>
-                        <td style="color: var(--accent);">${fechaFormat}</td>
-                        <td style="color: #666; font-family: monospace;">${cita.paypal_order_id}</td>
-                        <td>
+                        <td data-label="Contacto" style="color: #bbb;">${isBloqueo ? '-' : cita.contacto}</td>
+                        <td data-label="Fecha y hora" style="color: var(--accent);">${fechaFormat}</td>
+                        <td data-label="ID de pago" style="color: #666; font-family: monospace;">${cita.paypal_order_id}</td>
+                        <td data-label="Estado">
                             <span class="badge" style="background: ${isBloqueo ? '#ef4444' : '#d4af37'}; color: ${isBloqueo ? '#fff' : '#000'};">
                                 ${isBloqueo ? 'No Disponible' : 'Cita Pagada'}
                             </span>
                         </td>
-                        <td>
+                        <td data-label="Acción">
                             <button onclick="cancelarCita('${cita.id}')" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.2s;"
                                 onmouseover="this.style.background='#ef4444';this.style.color='#fff';"
                                 onmouseout="this.style.background='transparent';this.style.color='#ef4444';">
