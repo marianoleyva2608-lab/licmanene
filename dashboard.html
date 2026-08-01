@@ -26,35 +26,36 @@
             --bg: #0c0b0a;
             --surface: #1a1a1a;
         }
-        body { 
-            font-family: 'Montserrat', sans-serif; 
-            background-color: var(--bg); 
-            color: #f8f8f8; 
-            margin: 0; 
-            padding: 20px; 
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--bg);
+            color: #f8f8f8;
+            margin: 0;
+            padding: 14px;
         }
-        .header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            border-bottom: 2px solid var(--accent); 
-            padding-bottom: 15px; 
-            margin-bottom: 25px; 
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 10px;
+            margin-bottom: 16px;
         }
-        .header h1 { 
-            color: var(--accent); 
-            margin: 0; 
-            font-size: 1.8rem;
+        .header h1 {
+            color: var(--accent);
+            margin: 0;
+            font-size: 1.4rem;
         }
         /* Botones dorados modernos */
-        .btn { 
+        .btn {
             background: linear-gradient(180deg, #fad373 0%, #cd9f2c 60%, #a47614 100%);
-            color: #1a1a1a; 
-            padding: 10px 20px; 
-            border: 2px solid #ffeba1; 
-            border-radius: 50px; 
-            cursor: pointer; 
-            font-weight: 600; 
+            color: #1a1a1a;
+            padding: 7px 14px;
+            border: 2px solid #ffeba1;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
             transition: all 0.3s ease;
             box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.6), 0 2px 5px rgba(0,0,0,0.5);
         }
@@ -75,29 +76,30 @@
             overflow: hidden; 
             border: 1px solid rgba(212, 175, 55, 0.2);
         }
-        th, td { 
-            padding: 18px; 
-            text-align: left; 
-            border-bottom: 1px solid rgba(255,255,255,0.05); 
+        th, td {
+            padding: 9px 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.85rem;
         }
-        th { 
-            background: rgba(212, 175, 55, 0.1); 
-            color: var(--accent); 
-            font-weight: 600; 
-            letter-spacing: 1px;
+        th {
+            background: rgba(212, 175, 55, 0.1);
+            color: var(--accent);
+            font-weight: 600;
+            letter-spacing: 0.5px;
             text-transform: uppercase;
-            font-size: 0.9rem;
+            font-size: 0.75rem;
         }
         tr:hover { background: rgba(255,255,255,0.03); }
         tr:last-child td { border-bottom: none; }
-        
-        .badge { 
-            background: #34d399; 
-            color: #064e3b; 
-            padding: 6px 12px; 
-            border-radius: 20px; 
-            font-size: 0.8rem; 
-            font-weight: 700; 
+
+        .badge {
+            background: #34d399;
+            color: #064e3b;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
         }
 
         /* Modal para Bloqueos */
@@ -177,24 +179,23 @@
             }
             tbody#tabla-citas tr:hover { background: var(--surface); }
             tbody#tabla-citas td {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 12px;
-                padding: 10px 14px;
+                display: block;
+                padding: 8px 14px;
                 border-bottom: 1px solid rgba(255,255,255,0.05);
-                text-align: right;
+                text-align: left;
+                max-width: 100%;
+                overflow-wrap: anywhere;
             }
             tbody#tabla-citas tr td:last-child { border-bottom: none; }
             tbody#tabla-citas td[data-label]::before {
                 content: attr(data-label);
+                display: block;
                 color: var(--accent);
                 font-weight: 600;
-                font-size: 0.75rem;
+                font-size: 0.68rem;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
-                text-align: left;
-                flex-shrink: 0;
+                margin-bottom: 3px;
             }
             /* Fila de "cargando" / "sin registros" / error, sin data-label */
             tbody#tabla-citas tr td[colspan] {
@@ -436,7 +437,7 @@
                             </span>
                         </td>
                         <td data-label="Acción">
-                            <button onclick="cancelarCita('${cita.id}')" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.2s;"
+                            <button onclick="cancelarCita('${cita.id}')" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 3px 9px; border-radius: 20px; cursor: pointer; font-size: 0.7rem; font-weight: 600; transition: all 0.2s; white-space: nowrap;"
                                 onmouseover="this.style.background='#ef4444';this.style.color='#fff';"
                                 onmouseout="this.style.background='transparent';this.style.color='#ef4444';">
                                 <i class="fas fa-trash-alt"></i> Cancelar
