@@ -248,7 +248,7 @@ function guardarCitaEnSupabase(citaData, paymentId, monto) {
   try { existentes = JSON.parse(checkResp.getContentText()); } catch (e) { existentes = []; }
   if (Array.isArray(existentes) && existentes.length > 0) return; // ya estaba guardada
 
-  UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/citas', {
+  const insertResp = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/citas', {
     method: 'post',
     headers: supabaseHeaders(),
     payload: JSON.stringify([{
@@ -260,6 +260,10 @@ function guardarCitaEnSupabase(citaData, paymentId, monto) {
     }]),
     muteHttpExceptions: true
   });
+  const codigo = insertResp.getResponseCode();
+  if (codigo < 200 || codigo >= 300) {
+    throw new Error('Supabase respondio ' + codigo + ': ' + insertResp.getContentText());
+  }
 }
 
 // Avisa al despacho cuando un pago aprobado cae en un horario que ya estaba
