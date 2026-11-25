@@ -34,7 +34,12 @@ function esAdmin(accessToken) {
     });
     if (resp.getResponseCode() !== 200) return false;
     var u = JSON.parse(resp.getContentText());
-    return !!(u && u.id);
+    if (!u || !u.email) return false;
+    // Ademas de tener sesion, el correo debe estar en la tabla admins.
+    var chk = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/admins?select=email&email=eq.' +
+      encodeURIComponent(u.email), { method: 'get', headers: supabaseHeaders(), muteHttpExceptions: true });
+    var filas = JSON.parse(chk.getContentText());
+    return Array.isArray(filas) && filas.length > 0;
   } catch (e) {
     Logger.log('Error validando admin: ' + e.toString());
     return false;
