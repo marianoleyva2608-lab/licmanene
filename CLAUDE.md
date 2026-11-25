@@ -13,7 +13,6 @@ Sitio web de un despacho jurídico (licenciado), con sistema de agendamiento de 
 ## Páginas principales
 
 - `index.html` — landing pública del despacho.
-- `central.html` — login/checkin de clientes vía Supabase.
 - `dashboard.html` — panel del abogado: calendario, alta/baja de citas, toggle de modo prueba.
 - `panel-citas.html` — vista de citas agendadas.
 - `mercadopago-checkout.html` / `mercadopago-retorno.html` — flujo de cobro y retorno post-pago.
@@ -28,5 +27,8 @@ Conventional commits (`feat:`, `fix:`, `chore:`), en español, describiendo el q
 
 ## Notas
 
-- No hay `.env` ni gestión de secretos por variables de entorno: las claves/URLs (Supabase, Apps Script) están hardcodeadas directo en los HTML. Tenerlo en cuenta antes de commitear nuevas claves — si son sensibles, avisar en vez de subirlas tal cual.
+- URLs y clave ANON (pública) de Supabase viven en `config.js`, compartido por todas las páginas.
+- `dashboard.html` y `panel-citas.html` exigen login de Supabase (`auth-admin.js`).
+- La tabla `citas` está cerrada por RLS (`supabase/seguridad.sql`): el público solo lee la vista `horarios_ocupados`; el Apps Script usa la `service_role` desde la propiedad de script `SUPABASE_SERVICE_KEY`.
+- Nunca commitear `service_role`, `JWT_SECRET` ni el access token de Mercado Pago.
 - No hay tests ni linter configurados.

@@ -57,6 +57,7 @@
             font-weight: 700; cursor: pointer; text-decoration: none; display: inline-block;
         }
     </style>
+    <script src="config.js"></script>
 </head>
 <body>
 
@@ -92,7 +93,7 @@
     </div>
 
     <script>
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzCB_kipRvhZ5fwDwNK7mJ8u3SJLV3Rt_P5e2htYhKrHfJdyupGMe5BDsL_dncrGKPFPA/exec";
+        const GOOGLE_SCRIPT_URL = window.LIC_CONFIG.GOOGLE_SCRIPT_URL;
 
         function mostrarEstado(id) {
             document.querySelectorAll('.estado').forEach(el => el.classList.remove('activo'));

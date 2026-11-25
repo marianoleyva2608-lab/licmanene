@@ -12,6 +12,8 @@
     
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="auth-admin.js"></script>
 
     <!-- FullCalendar SDK -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
@@ -291,9 +293,7 @@
     </div>
 
     <script>
-        const SUPABASE_URL = "https://licmanene-supabase.vms1bk.easypanel.host";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzCB_kipRvhZ5fwDwNK7mJ8u3SJLV3Rt_P5e2htYhKrHfJdyupGMe5BDsL_dncrGKPFPA/exec";
+        const GOOGLE_SCRIPT_URL = window.LIC_CONFIG.GOOGLE_SCRIPT_URL;
 
         // Google Calendar API
         const GOOGLE_CLIENT_ID = "632910100889-1qqj82379872220tt8sqs9e9ioj49snc.apps.googleusercontent.com";
@@ -345,12 +345,12 @@
         }
 
         function cerrarSesion() {
-            const token = gapi.client.getToken();
+            const token = gapi.client && gapi.client.getToken();
             if (token) {
                 google.accounts.oauth2.revoke(token.access_token);
                 gapi.client.setToken('');
             }
-            window.location.href = 'index.html';
+            cerrarSesionAdmin(_supabase);
         }
 
         async function obtenerEventosCalendar(fetchInfo, successCallback, failureCallback) {
@@ -396,7 +396,7 @@
             return resp.result.id;
         }
         
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let _supabase = null;
         let blockCalendar = null;
         let selectedBlockDate = null;
 
@@ -426,18 +426,18 @@
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td data-label="Cliente" style="font-weight: 600; color: ${isBloqueo ? '#ef4444' : '#fff'};">
-                            ${isBloqueo ? '<i class="fas fa-ban"></i> BLOQUEADO' : cita.cliente}
+                            ${isBloqueo ? '<i class="fas fa-ban"></i> BLOQUEADO' : escaparHTML(cita.cliente)}
                         </td>
-                        <td data-label="Contacto" style="color: #bbb;">${isBloqueo ? '-' : cita.contacto}</td>
+                        <td data-label="Contacto" style="color: #bbb;">${isBloqueo ? '-' : escaparHTML(cita.contacto)}</td>
                         <td data-label="Fecha y hora" style="color: var(--accent);">${fechaFormat}</td>
-                        <td data-label="ID de pago" style="color: #666; font-family: monospace;">${cita.paypal_order_id}</td>
+                        <td data-label="ID de pago" style="color: #666; font-family: monospace;">${escaparHTML(cita.paypal_order_id)}</td>
                         <td data-label="Estado">
                             <span class="badge" style="background: ${isBloqueo ? '#ef4444' : '#d4af37'}; color: ${isBloqueo ? '#fff' : '#000'};">
                                 ${isBloqueo ? 'No Disponible' : 'Cita Pagada'}
                             </span>
                         </td>
                         <td data-label="Acción">
-                            <button onclick="cancelarCita('${cita.id}')" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 3px 9px; border-radius: 20px; cursor: pointer; font-size: 0.7rem; font-weight: 600; transition: all 0.2s; white-space: nowrap;"
+                            <button onclick="cancelarCita(${Number(cita.id)})" style="background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 3px 9px; border-radius: 20px; cursor: pointer; font-size: 0.7rem; font-weight: 600; transition: all 0.2s; white-space: nowrap;"
                                 onmouseover="this.style.background='#ef4444';this.style.color='#fff';"
                                 onmouseout="this.style.background='transparent';this.style.color='#ef4444';">
                                 <i class="fas fa-trash-alt"></i> Cancelar
@@ -514,7 +514,7 @@
                 } else {
                     await fetch(GOOGLE_SCRIPT_URL, {
                         method: 'POST', mode: 'no-cors',
-                        body: JSON.stringify({ cliente: 'BLOQUEADO', contacto: '-', fecha: isoString, pagoId: 'BLOQUEO_MANUAL' })
+                        body: JSON.stringify({ accion: 'admin_bloqueo', accessToken: await tokenAdmin(_supabase), fecha: isoString })
                     });
                 }
                 alert("Horario bloqueado.");
@@ -599,7 +599,7 @@
                 } else {
                     await fetch(GOOGLE_SCRIPT_URL, {
                         method: 'POST', mode: 'no-cors',
-                        body: JSON.stringify({ cliente: nombre, contacto, fecha: isoString, pagoId: 'ADMIN' })
+                        body: JSON.stringify({ accion: 'admin_cita', accessToken: await tokenAdmin(_supabase), cliente: nombre, contacto, correo, fecha: isoString, pagoId: 'ADMIN' })
                     });
                 }
                 alert("Cita agendada con éxito.");
@@ -651,8 +651,8 @@
             }
         }
 
-        // Ejecutar al cargar la página
-        cargarCitas();
+        // Ejecutar al cargar la página (solo con sesión iniciada)
+        requerirLoginAdmin().then(client => { _supabase = client; cargarCitas(); });
     </script>
 </body>
 </html>

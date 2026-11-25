@@ -13,6 +13,8 @@
 
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="auth-admin.js"></script>
 
     <style>
         :root {
@@ -166,7 +168,7 @@
                 Horario</button>
             <button class="btn"
                 style="background: transparent; color: var(--accent); border-color: var(--accent); box-shadow: none;"
-                onclick="window.location.href='index.html'">Cerrar Sesión</button>
+                onclick="cerrarSesionAdmin(_supabase)">Cerrar Sesión</button>
         </div>
     </div>
 
@@ -210,11 +212,8 @@
     </div>
 
     <script>
-        const SUPABASE_URL = "https://licmanene-supabase.vms1bk.easypanel.host";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE";
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzCB_kipRvhZ5fwDwNK7mJ8u3SJLV3Rt_P5e2htYhKrHfJdyupGMe5BDsL_dncrGKPFPA/exec";
-
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const GOOGLE_SCRIPT_URL = window.LIC_CONFIG.GOOGLE_SCRIPT_URL;
+        let _supabase = null;
 
         async function cargarCitas() {
             const tbody = document.getElementById('tabla-citas');
@@ -243,11 +242,11 @@
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td style="font-weight: 600; color: ${isBloqueo ? '#ef4444' : '#fff'};">
-                            ${isBloqueo ? '<i class="fas fa-ban"></i> BLOQUEADO' : cita.cliente}
+                            ${isBloqueo ? '<i class="fas fa-ban"></i> BLOQUEADO' : escaparHTML(cita.cliente)}
                         </td>
-                        <td style="color: #bbb;">${isBloqueo ? '-' : cita.contacto}</td>
+                        <td style="color: #bbb;">${isBloqueo ? '-' : escaparHTML(cita.contacto)}</td>
                         <td style="color: var(--accent);">${fechaFormat}</td>
-                        <td style="color: #666; font-family: monospace;">${cita.paypal_order_id}</td>
+                        <td style="color: #666; font-family: monospace;">${escaparHTML(cita.paypal_order_id)}</td>
                         <td>
                             <span class="badge" style="background: ${isBloqueo ? '#ef4444' : '#d4af37'}; color: ${isBloqueo ? '#fff' : '#000'};">
                                 ${isBloqueo ? 'No Disponible' : 'Cita Pagada'}
@@ -286,10 +285,9 @@
                     method: 'POST',
                     mode: 'no-cors',
                     body: JSON.stringify({
-                        cliente: 'BLOQUEO MANUAL',
-                        contacto: '-',
-                        fecha: isoString,
-                        pagoId: 'BLOQUEO_MANUAL'
+                        accion: 'admin_bloqueo',
+                        accessToken: await tokenAdmin(_supabase),
+                        fecha: isoString
                     })
                 });
 
@@ -300,7 +298,7 @@
             }
         }
 
-        cargarCitas();
+        requerirLoginAdmin().then(client => { _supabase = client; cargarCitas(); });
     </script>
 </body>
 

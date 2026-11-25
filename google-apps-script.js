@@ -1,10 +1,45 @@
 // ================================================
 // GOOGLE APPS SCRIPT - Lic Manene
+// REQUIERE: Services -> Google Calendar API (Calendar)
+//
+// Propiedades del script (Configuracion del proyecto -> Propiedades del script):
+//   MP_ACCESS_TOKEN       -> access token de Mercado Pago
+//   SUPABASE_SERVICE_KEY  -> SERVICE_ROLE_KEY del Supabase de licmanene
+// Nunca pegues esas claves en este archivo ni en el repositorio.
 // ================================================
 
 var CORREO_MANENE = 'asesoriaslicmanene@gmail.com';
 var SUPABASE_URL = 'https://licmanene-supabase.vms1bk.easypanel.host';
-var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
+
+function supabaseKey() {
+  var k = PropertiesService.getScriptProperties().getProperty('SUPABASE_SERVICE_KEY');
+  if (!k) throw new Error('Falta configurar SUPABASE_SERVICE_KEY en las propiedades del script.');
+  return k;
+}
+
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Valida que la peticion venga de un usuario con sesion en el Supabase del despacho.
+function esAdmin(accessToken) {
+  if (!accessToken) return false;
+  try {
+    var resp = UrlFetchApp.fetch(SUPABASE_URL + '/auth/v1/user', {
+      method: 'get',
+      headers: { apikey: supabaseKey(), Authorization: 'Bearer ' + accessToken },
+      muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() !== 200) return false;
+    var u = JSON.parse(resp.getContentText());
+    return !!(u && u.id);
+  } catch (e) {
+    Logger.log('Error validando admin: ' + e.toString());
+    return false;
+  }
+}
 
 function doPost(e) {
   const output = ContentService.createTextOutput();
@@ -35,21 +70,29 @@ function doPost(e) {
       return output;
     }
 
-    const inicio = new Date(data.fecha);
-    const fin = new Date(inicio.getTime() + 50 * 60 * 1000);
-
-    // Bloqueo manual
-    if (data.cliente === 'BLOQUEO MANUAL') {
-      const cal = CalendarApp.getDefaultCalendar();
-      const ev = cal.createEvent('BLOQUEADO', inicio, fin, {
-        description: 'Horario bloqueado manualmente.'
-      });
-      output.setContent(JSON.stringify({ success: true, eventId: ev.getId() }));
+    // Acciones del panel del despacho: requieren sesion de Supabase.
+    if (data.accion === 'admin_bloqueo' || data.accion === 'admin_cita') {
+      if (!esAdmin(data.accessToken)) {
+        output.setContent(JSON.stringify({ success: false, error: 'No autorizado.' }));
+        return output;
+      }
+      if (data.accion === 'admin_bloqueo') {
+        const inicio = new Date(data.fecha);
+        const fin = new Date(inicio.getTime() + 50 * 60 * 1000);
+        const ev = CalendarApp.getDefaultCalendar().createEvent('BLOQUEADO', inicio, fin, {
+          description: 'Horario bloqueado manualmente.'
+        });
+        output.setContent(JSON.stringify({ success: true, eventId: ev.getId() }));
+        return output;
+      }
+      const resultado = crearCitaCalendario(data);
+      output.setContent(JSON.stringify({ success: true, eventId: resultado.eventId, meetLink: resultado.meetLink }));
       return output;
     }
 
-    const resultado = crearCitaCalendario(data);
-    output.setContent(JSON.stringify({ success: true, eventId: resultado.eventId, meetLink: resultado.meetLink }));
+    // Cualquier otra peticion se rechaza: las citas publicas solo se crean
+    // despues de verificar un pago aprobado en Mercado Pago.
+    output.setContent(JSON.stringify({ success: false, error: 'Accion no valida.' }));
   } catch (err) {
     output.setContent(JSON.stringify({ success: false, error: err.toString() }));
   }
@@ -121,7 +164,7 @@ function crearCitaCalendario(data) {
     const htmlCorreo =
       '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0c0b0a;color:#f8f8f8;padding:30px;border-radius:12px;">' +
       '<h2 style="color:#d4af37;margin-top:0;">Tu Asesoria esta Confirmada</h2>' +
-      '<p>Hola <strong>' + data.cliente + '</strong>,</p>' +
+      '<p>Hola <strong>' + esc(data.cliente) + '</strong>,</p>' +
       '<p>Tu asesoria legal ha sido agendada exitosamente.</p>' +
       '<div style="background:#1a1a1a;border:1px solid #d4af37;border-radius:8px;padding:20px;margin:20px 0;">' +
       '<p style="margin:0 0 10px 0;"><strong>Fecha:</strong> ' + fechaFormato + '</p>' +
@@ -158,9 +201,9 @@ function crearCitaCalendario(data) {
           htmlBody:
             '<div style="font-family:Arial,sans-serif;max-width:600px;background:#fff;padding:20px;border-radius:8px;">' +
             '<h2 style="color:#d4af37;">Nueva Cita Agendada</h2>' +
-            '<p><strong>Cliente:</strong> ' + data.cliente + '</p>' +
-            '<p><strong>Contacto:</strong> ' + data.contacto + '</p>' +
-            '<p><strong>Correo:</strong> ' + data.correo + '</p>' +
+            '<p><strong>Cliente:</strong> ' + esc(data.cliente) + '</p>' +
+            '<p><strong>Contacto:</strong> ' + esc(data.contacto) + '</p>' +
+            '<p><strong>Correo:</strong> ' + esc(data.correo) + '</p>' +
             '<p><strong>Fecha:</strong> ' + fechaFormato + '</p>' +
             '<p><strong>Duracion:</strong> 50 minutos</p>' +
             (meetLink ? '<p><strong>Google Meet:</strong> <a href="' + meetLink + '">' + meetLink + '</a></p>' : '') +
@@ -198,8 +241,8 @@ function extraerPaymentIdDeNotificacionMP(data, params) {
 
 function supabaseHeaders() {
   return {
-    apikey: SUPABASE_KEY,
-    Authorization: 'Bearer ' + SUPABASE_KEY,
+    apikey: supabaseKey(),
+    Authorization: 'Bearer ' + supabaseKey(),
     'Content-Type': 'application/json'
   };
 }
@@ -231,6 +274,19 @@ function horarioOcupado(fechaISO) {
 // Inserta la cita en Supabase (idempotente por paymentId) para que quede reflejada
 // en la disponibilidad publica y en los paneles de administracion, sin depender de
 // que el navegador del cliente siga abierto.
+function citaYaGuardada(paymentId) {
+  try {
+    const url = SUPABASE_URL + '/rest/v1/citas?paypal_order_id=eq.' +
+      encodeURIComponent(String(paymentId)) + '&select=id';
+    const resp = UrlFetchApp.fetch(url, { method: 'get', headers: supabaseHeaders(), muteHttpExceptions: true });
+    const filas = JSON.parse(resp.getContentText());
+    return Array.isArray(filas) && filas.length > 0;
+  } catch (e) {
+    Logger.log('Error consultando pago en Supabase: ' + e.toString());
+    return false;
+  }
+}
+
 function guardarCitaEnSupabase(citaData, paymentId, monto) {
   const checkUrl = SUPABASE_URL + '/rest/v1/citas?paypal_order_id=eq.' +
     encodeURIComponent(String(paymentId)) + '&select=id';
@@ -367,6 +423,12 @@ function verificarPagoMP(data) {
     const yaProcesado = cache.get(cacheKey);
     if (yaProcesado) return JSON.parse(yaProcesado);
 
+    // Si el pago ya quedo guardado en Supabase (procesado hace mas de 6 h y
+    // el cache expiro), no volver a crear el evento ni reenviar correos.
+    if (citaYaGuardada(paymentId)) {
+      return { success: true, yaProcesado: true };
+    }
+
     const response = UrlFetchApp.fetch('https://api.mercadopago.com/v1/payments/' + paymentId, {
       method: 'get',
       headers: { Authorization: 'Bearer ' + accessToken },
@@ -460,7 +522,8 @@ function doGet(e) {
 
     const eventos = calendar.getEvents(ahora, enUnMes).map(ev => ({
       id: ev.getId(),
-      title: ev.getTitle(),
+      // Sin nombres de clientes: esta URL es publica.
+      title: ev.getTitle().includes('BLOQUEADO') ? 'BLOQUEADO' : 'Ocupado',
       start: ev.getStartTime().toISOString(),
       end: ev.getEndTime().toISOString(),
       backgroundColor: ev.getTitle().includes('BLOQUEADO') ? '#4b4b4b' : '#d4af37',
@@ -485,20 +548,4 @@ function testCrearPreferenciaMP() {
     baseUrl: 'https://example.com'
   });
   Logger.log(JSON.stringify(resultado));
-}
-
-function testEnviarCorreo() {
-  const payload = {
-    postData: {
-      contents: JSON.stringify({
-        cliente: 'Prueba Test',
-        contacto: '5512345678',
-        correo: Session.getActiveUser().getEmail(),
-        fecha: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        pagoId: 'TEST_MANUAL_' + Date.now()
-      })
-    }
-  };
-  const result = doPost(payload);
-  Logger.log(result.getContent());
 }
