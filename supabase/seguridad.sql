@@ -24,6 +24,8 @@ grant select on public.horarios_ocupados to anon, authenticated;
 -- 3. Cerrar la tabla citas. El Apps Script usa la service_role (no pasa por RLS).
 alter table public.citas enable row level security;
 drop policy if exists allow_all on public.citas;
+drop policy if exists "anon read citas" on public.citas;
+drop policy if exists "anon insert citas" on public.citas;
 revoke all on public.citas from anon;
 drop policy if exists admin_todo on public.citas;
 create policy admin_todo on public.citas
